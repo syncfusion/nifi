@@ -36,12 +36,14 @@ import org.apache.nifi.annotation.behavior.EventDriven;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
+import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.flowfile.attributes.CoreAttributes;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
@@ -54,6 +56,11 @@ import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.processors.standard.util.JdbcCommon;
 import org.apache.nifi.util.StopWatch;
 
+import static org.apache.nifi.processors.standard.util.JdbcCommon.DEFAULT_PRECISION;
+import static org.apache.nifi.processors.standard.util.JdbcCommon.DEFAULT_SCALE;
+import static org.apache.nifi.processors.standard.util.JdbcCommon.NORMALIZE_NAMES_FOR_AVRO;
+import static org.apache.nifi.processors.standard.util.JdbcCommon.USE_AVRO_LOGICAL_TYPES;
+
 @EventDriven
 @InputRequirement(Requirement.INPUT_ALLOWED)
 @Tags({"sql", "select", "jdbc", "query", "database"})
@@ -62,10 +69,14 @@ import org.apache.nifi.util.StopWatch;
         + "a timer, or cron expression, using the standard scheduling methods, or it can be triggered by an incoming FlowFile. "
         + "If it is triggered by an incoming FlowFile, then attributes of that FlowFile will be available when evaluating the "
         + "select query. FlowFile attribute 'executesql.row.count' indicates how many rows were selected.")
-@WritesAttribute(attribute="executesql.row.count", description = "Contains the number of rows returned in the select query")
+@WritesAttributes({
+    @WritesAttribute(attribute="executesql.row.count", description = "Contains the number of rows returned in the select query"),
+    @WritesAttribute(attribute="executesql.query.duration", description = "Duration of the query in milliseconds")
+})
 public class ExecuteSQL extends AbstractProcessor {
 
     public static final String RESULT_ROW_COUNT = "executesql.row.count";
+    public static final String RESULT_QUERY_DURATION = "executesql.query.duration";
 
     // Relationships
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -107,16 +118,6 @@ public class ExecuteSQL extends AbstractProcessor {
             .sensitive(false)
             .build();
 
-    public static final PropertyDescriptor NORMALIZE_NAMES_FOR_AVRO = new PropertyDescriptor.Builder()
-            .name("dbf-normalize")
-            .displayName("Normalize Table/Column Names")
-            .description("Whether to change non-Avro-compatible characters in column names to Avro-compatible characters. For example, colons and periods "
-                    + "will be changed to underscores in order to build a valid Avro record.")
-            .allowableValues("true", "false")
-            .defaultValue("false")
-            .required(true)
-            .build();
-
     private final List<PropertyDescriptor> propDescriptors;
 
     public ExecuteSQL() {
@@ -130,6 +131,9 @@ public class ExecuteSQL extends AbstractProcessor {
         pds.add(SQL_SELECT_QUERY);
         pds.add(QUERY_TIMEOUT);
         pds.add(NORMALIZE_NAMES_FOR_AVRO);
+        pds.add(USE_AVRO_LOGICAL_TYPES);
+        pds.add(DEFAULT_PRECISION);
+        pds.add(DEFAULT_SCALE);
         propDescriptors = Collections.unmodifiableList(pds);
     }
 
@@ -172,6 +176,9 @@ public class ExecuteSQL extends AbstractProcessor {
         final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
         final Integer queryTimeout = context.getProperty(QUERY_TIMEOUT).asTimePeriod(TimeUnit.SECONDS).intValue();
         final boolean convertNamesForAvro = context.getProperty(NORMALIZE_NAMES_FOR_AVRO).asBoolean();
+        final Boolean useAvroLogicalTypes = context.getProperty(USE_AVRO_LOGICAL_TYPES).asBoolean();
+        final Integer defaultPrecision = context.getProperty(DEFAULT_PRECISION).evaluateAttributeExpressions().asInteger();
+        final Integer defaultScale = context.getProperty(DEFAULT_SCALE).evaluateAttributeExpressions().asInteger();
         final StopWatch stopWatch = new StopWatch(true);
         final String selectQuery;
         if (context.getProperty(SQL_SELECT_QUERY).isSet()) {
@@ -202,20 +209,29 @@ public class ExecuteSQL extends AbstractProcessor {
                     try {
                         logger.debug("Executing query {}", new Object[]{selectQuery});
                         final ResultSet resultSet = st.executeQuery(selectQuery);
-                        nrOfRows.set(JdbcCommon.convertToAvroStream(resultSet, out, convertNamesForAvro));
+                        final JdbcCommon.AvroConversionOptions options = JdbcCommon.AvroConversionOptions.builder()
+                                .convertNames(convertNamesForAvro)
+                                .useLogicalTypes(useAvroLogicalTypes)
+                                .defaultPrecision(defaultPrecision)
+                                .defaultScale(defaultScale)
+                                .build();
+                        nrOfRows.set(JdbcCommon.convertToAvroStream(resultSet, out, options, null));
                     } catch (final SQLException e) {
                         throw new ProcessException(e);
                     }
                 }
             });
 
+            long duration = stopWatch.getElapsed(TimeUnit.MILLISECONDS);
+
             // set attribute how many rows were selected
             fileToProcess = session.putAttribute(fileToProcess, RESULT_ROW_COUNT, String.valueOf(nrOfRows.get()));
+            fileToProcess = session.putAttribute(fileToProcess, RESULT_QUERY_DURATION, String.valueOf(duration));
+            fileToProcess = session.putAttribute(fileToProcess, CoreAttributes.MIME_TYPE.key(), JdbcCommon.MIME_TYPE_AVRO_BINARY);
 
             logger.info("{} contains {} Avro records; transferring to 'success'",
                     new Object[]{fileToProcess, nrOfRows.get()});
-            session.getProvenanceReporter().modifyContent(fileToProcess, "Retrieved " + nrOfRows.get() + " rows",
-                    stopWatch.getElapsed(TimeUnit.MILLISECONDS));
+            session.getProvenanceReporter().modifyContent(fileToProcess, "Retrieved " + nrOfRows.get() + " rows", duration);
             session.transfer(fileToProcess, REL_SUCCESS);
         } catch (final ProcessException | SQLException e) {
             if (fileToProcess == null) {

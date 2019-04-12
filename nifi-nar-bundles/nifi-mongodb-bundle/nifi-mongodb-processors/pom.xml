@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.apache.nifi</groupId>
         <artifactId>nifi-mongodb-bundle</artifactId>
-        <version>1.2.0-SNAPSHOT</version>
+        <version>1.4.0</version>
     </parent>
 
     <artifactId>nifi-mongodb-processors</artifactId>
@@ -32,7 +32,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
-            <artifactId>nifi-api</artifactId>
+            <artifactId>dataintegration-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
@@ -45,6 +45,14 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-record-serialization-service-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-record</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>

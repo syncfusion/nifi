@@ -39,6 +39,7 @@ import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.remote.Transaction;
 import org.apache.nifi.remote.TransferDirection;
 import org.apache.nifi.remote.client.SiteToSiteClient;
+import org.apache.nifi.remote.protocol.SiteToSiteTransportProtocol;
 import org.apache.nifi.state.MockStateManager;
 import org.apache.nifi.util.MockPropertyValue;
 import org.junit.Assert;
@@ -53,7 +54,7 @@ public class TestSiteToSiteBulletinReportingTask {
     public void testSerializedForm() throws IOException, InitializationException {
         // creating the list of bulletins
         final List<Bulletin> bulletins = new ArrayList<Bulletin>();
-        bulletins.add(BulletinFactory.createBulletin("category", "severity", "message"));
+        bulletins.add(BulletinFactory.createBulletin("group-id", "group-name", "source-id", "source-name", "category", "severity", "message"));
 
         // mock the access to the list of bulletins
         final ReportingContext context = Mockito.mock(ReportingContext.class);
@@ -96,6 +97,7 @@ public class TestSiteToSiteBulletinReportingTask {
         JsonReader jsonReader = Json.createReader(new ByteArrayInputStream(msg.getBytes()));
         JsonObject bulletinJson = jsonReader.readArray().getJsonObject(0);
         assertEquals("message", bulletinJson.getString("bulletinMessage"));
+        assertEquals("group-name", bulletinJson.getString("bulletinGroupName"));
     }
 
     @Test
@@ -126,6 +128,11 @@ public class TestSiteToSiteBulletinReportingTask {
         }
         properties.put(SiteToSiteBulletinReportingTask.BATCH_SIZE, "1000");
         properties.put(SiteToSiteBulletinReportingTask.PLATFORM, "nifi");
+        properties.put(SiteToSiteBulletinReportingTask.TRANSPORT_PROTOCOL, SiteToSiteTransportProtocol.HTTP.name());
+        properties.put(SiteToSiteBulletinReportingTask.HTTP_PROXY_HOSTNAME, "localhost");
+        properties.put(SiteToSiteBulletinReportingTask.HTTP_PROXY_PORT, "80");
+        properties.put(SiteToSiteBulletinReportingTask.HTTP_PROXY_USERNAME, "username");
+        properties.put(SiteToSiteBulletinReportingTask.HTTP_PROXY_PASSWORD, "password");
 
         Mockito.doAnswer(new Answer<PropertyValue>() {
             @Override

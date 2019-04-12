@@ -46,7 +46,7 @@
             <div id="component-list-toggle-link">-</div>
             <div id="header-contents">
                 <div id="nf-title">NiFi Documentation</div>
-                <div id="nf-version"></div>
+                <div id="nf-version" class="version"></div>
                 <div id="selected-component"></div>
             </div>
         </div>
@@ -61,6 +61,7 @@
                                 <li class="component-item"><a class="document-link getting-started" href="html/getting-started.html" target="component-usage">Getting Started</a></li>
                                 <li class="component-item"><a class="document-link user-guide" href="html/user-guide.html" target="component-usage">User Guide</a></li>
                                 <li class="component-item"><a class="document-link expression-language-guide" href="html/expression-language-guide.html" target="component-usage">Expression Language Guide</a></li>
+                                <li class="component-item"><a class="document-link record-path-guide" href="html/record-path-guide.html" target="component-usage">RecordPath Guide</a></li>
                                 <li class="component-item"><a class="document-link admin-guide" href="html/administration-guide.html" target="component-usage">Admin Guide</a></li>
                             </ul>
                             <span class="no-matching no-components hidden">No matching guides</span>
@@ -85,7 +86,7 @@
                                                             ${entry.key}
                                                         </c:when>
                                                         <c:otherwise>
-                                                            ${entry.key} ${bundleEntry.version}
+                                                            ${entry.key} <span class="version">${bundleEntry.version}</span>
                                                         </c:otherwise>
                                                     </c:choose>
                                                 </a>
@@ -121,7 +122,7 @@
                                                             ${entry.key}
                                                         </c:when>
                                                         <c:otherwise>
-                                                            ${entry.key} ${bundleEntry.version}
+                                                            ${entry.key} <span class="version">${bundleEntry.version}</span>
                                                         </c:otherwise>
                                                     </c:choose>
                                                 </a>
@@ -156,7 +157,7 @@
                                                             ${entry.key}
                                                         </c:when>
                                                         <c:otherwise>
-                                                            ${entry.key} ${bundleEntry.version}
+                                                            ${entry.key} <span class="version">${bundleEntry.version}</span>
                                                         </c:otherwise>
                                                     </c:choose>
                                                 </a>

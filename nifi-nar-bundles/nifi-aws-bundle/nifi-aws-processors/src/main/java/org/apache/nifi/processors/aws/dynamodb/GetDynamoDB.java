@@ -41,7 +41,7 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
-
+import org.json.simple.JSONObject;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.dynamodbv2.document.BatchGetItemOutcome;
@@ -100,19 +100,19 @@ public class GetDynamoDB extends AbstractDynamoDBProcessor {
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) {
-        List<FlowFile> flowFiles = session.get(context.getProperty(BATCH_SIZE).asInteger());
+        List<FlowFile> flowFiles = session.get(context.getProperty(BATCH_SIZE).evaluateAttributeExpressions().asInteger());
         if (flowFiles == null || flowFiles.size() == 0) {
             return;
         }
 
         Map<ItemKeys,FlowFile> keysToFlowFileMap = new HashMap<>();
 
-        final String table = context.getProperty(TABLE).getValue();
+        final String table = context.getProperty(TABLE).evaluateAttributeExpressions().getValue();
         TableKeysAndAttributes tableKeysAndAttributes = new TableKeysAndAttributes(table);
 
-        final String hashKeyName = context.getProperty(HASH_KEY_NAME).getValue();
-        final String rangeKeyName = context.getProperty(RANGE_KEY_NAME).getValue();
-        final String jsonDocument = context.getProperty(JSON_DOCUMENT).getValue();
+        final String hashKeyName = context.getProperty(HASH_KEY_NAME).evaluateAttributeExpressions().getValue();
+        final String rangeKeyName = context.getProperty(RANGE_KEY_NAME).evaluateAttributeExpressions().getValue();
+        final String jsonDocument = context.getProperty(JSON_DOCUMENT).evaluateAttributeExpressions().getValue();
 
         for (FlowFile flowFile : flowFiles) {
             final Object hashKeyValue = getValue(context, HASH_KEY_VALUE_TYPE, HASH_KEY_VALUE, flowFile);
@@ -146,16 +146,30 @@ public class GetDynamoDB extends AbstractDynamoDBProcessor {
 
             // Handle processed items and get the json document
             List<Item> items = result.getTableItems().get(table);
+            Iterable< Map.Entry< String, Object>> columnList;
+            JSONObject jsonValues = new JSONObject();
+            ByteArrayInputStream bais;
+            String columnValues = "";
             for (Item item : items) {
                 ItemKeys itemKeys = new ItemKeys(item.get(hashKeyName), item.get(rangeKeyName));
                 FlowFile flowFile = keysToFlowFileMap.get(itemKeys);
-
-                if ( item.get(jsonDocument) != null ) {
-                    ByteArrayInputStream bais = new ByteArrayInputStream(item.getJSON(jsonDocument).getBytes());
+                if (item.get(jsonDocument) != null) {
+                    bais = new ByteArrayInputStream(item.getJSON(jsonDocument).getBytes());
                     flowFile = session.importFrom(bais, flowFile);
                 }
-
-                session.transfer(flowFile,REL_SUCCESS);
+                // Fetch table attributes in json format
+                else if (jsonDocument == null ) {
+                    for (int i = 0; i < items.size(); i++) {
+                        columnList = items.get(i).attributes();
+                        for (Map.Entry entry : columnList) {
+                            jsonValues.put(entry.getKey(), entry.getValue());
+                            columnValues = jsonValues.toString();
+                        }
+                        bais = new ByteArrayInputStream(columnValues.getBytes());
+                        flowFile = session.importFrom(bais, flowFile);
+                    }
+                }
+                session.transfer(flowFile, REL_SUCCESS);
                 keysToFlowFileMap.remove(itemKeys);
             }
 

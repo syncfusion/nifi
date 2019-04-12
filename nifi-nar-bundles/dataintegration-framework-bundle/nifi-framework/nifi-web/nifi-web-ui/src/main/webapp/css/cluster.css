@@ -1,0 +1,101 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+    Cluster Styles
+*/
+
+
+.cluster-container{
+    position: absolute;
+    top: 0;
+    right: 20px;
+    bottom: 0;
+    left: 20px;
+    overflow: auto;
+}
+
+
+.filter-controls {
+    z-index: 1;
+}
+
+.cluster-header {
+    font-size: 18px;
+    font-weight: bold;
+    color: #728E9B;
+    font-family: Roboto Slab;
+    margin-bottom: 30px;
+}
+
+.cluster-tabs {
+    top: 80px;
+}
+
+.cluster-refresh-section {
+    position: absolute;
+    bottom: 0px;
+    left: 20px;
+    right: 20px;
+}
+
+.loading-container {
+    float: left;
+    width: 16px;
+    height: 16px;
+    background-color: transparent;
+    margin-top: 4px;
+    margin-left: 3px;
+}
+
+.last-refreshed {
+    font-weight: bold;
+}
+
+.cluster-header {
+    padding-top: 10px;
+}
+
+/* cluster table */
+
+.cluster-tabbed-table{
+    position: absolute;
+    top: 70px;
+    right: 0;
+    bottom: 47px;
+    left: 0;
+    min-height: 150px;
+}
+
+.cluster-tabs .slick-cell .cell-right {
+    text-align: right;
+    padding-right: 16px;
+    padding-left: 2px;
+}
+
+.cluster-tabs .slick-header-column .header-right {
+    text-align: right;
+}
+
+.sorted {
+    text-decoration: underline;
+}
+
+/* user details dialog */
+
+#node-events {
+    max-height: 200px;
+}

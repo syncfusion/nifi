@@ -133,7 +133,7 @@ public class PutEmail extends AbstractProcessor {
             .required(true)
             .expressionLanguageSupported(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .defaultValue("NiFi")
+            .defaultValue("Data Integration Platform")
             .build();
     public static final PropertyDescriptor CONTENT_TYPE = new PropertyDescriptor.Builder()
             .name("Content Type")
@@ -176,7 +176,7 @@ public class PutEmail extends AbstractProcessor {
             .description("The email subject")
             .required(true)
             .expressionLanguageSupported(true)
-            .defaultValue("Message from NiFi")
+            .defaultValue("Message from Data Integration")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
     public static final PropertyDescriptor MESSAGE = new PropertyDescriptor.Builder()

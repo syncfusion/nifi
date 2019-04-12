@@ -30,12 +30,14 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.QuoteMode;
+import org.apache.nifi.schema.access.SchemaNameAsAttribute;
 import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.MapRecord;
@@ -52,7 +54,6 @@ public class TestWriteCSVResult {
     @Test
     public void testDataTypes() throws IOException {
         final CSVFormat csvFormat = CSVFormat.DEFAULT.withQuoteMode(QuoteMode.ALL).withRecordSeparator("\n");
-        final WriteCSVResult result = new WriteCSVResult(csvFormat, RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat());
 
         final StringBuilder headerBuilder = new StringBuilder();
         final List<RecordField> fields = new ArrayList<>();
@@ -71,33 +72,37 @@ public class TestWriteCSVResult {
         }
         final RecordSchema schema = new SimpleRecordSchema(fields);
 
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
         final long now = System.currentTimeMillis();
-        final Map<String, Object> valueMap = new HashMap<>();
-        valueMap.put("string", "string");
-        valueMap.put("boolean", true);
-        valueMap.put("byte", (byte) 1);
-        valueMap.put("char", 'c');
-        valueMap.put("short", (short) 8);
-        valueMap.put("int", 9);
-        valueMap.put("bigint", BigInteger.valueOf(8L));
-        valueMap.put("long", 8L);
-        valueMap.put("float", 8.0F);
-        valueMap.put("double", 8.0D);
-        valueMap.put("date", new Date(now));
-        valueMap.put("time", new Time(now));
-        valueMap.put("timestamp", new Timestamp(now));
-        valueMap.put("record", null);
-        valueMap.put("choice", 48L);
-        valueMap.put("array", null);
 
-        final Record record = new MapRecord(schema, valueMap);
-        final RecordSet rs = RecordSet.of(schema, record);
+        try (final WriteCSVResult result = new WriteCSVResult(csvFormat, schema, new SchemaNameAsAttribute(), baos,
+            RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat(), true)) {
 
-        final String output;
-        try (final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            result.write(rs, baos);
-            output = new String(baos.toByteArray(), StandardCharsets.UTF_8);
+            final Map<String, Object> valueMap = new HashMap<>();
+            valueMap.put("string", "string");
+            valueMap.put("boolean", true);
+            valueMap.put("byte", (byte) 1);
+            valueMap.put("char", 'c');
+            valueMap.put("short", (short) 8);
+            valueMap.put("int", 9);
+            valueMap.put("bigint", BigInteger.valueOf(8L));
+            valueMap.put("long", 8L);
+            valueMap.put("float", 8.0F);
+            valueMap.put("double", 8.0D);
+            valueMap.put("date", new Date(now));
+            valueMap.put("time", new Time(now));
+            valueMap.put("timestamp", new Timestamp(now));
+            valueMap.put("record", null);
+            valueMap.put("choice", 48L);
+            valueMap.put("array", null);
+
+            final Record record = new MapRecord(schema, valueMap);
+            final RecordSet rs = RecordSet.of(schema, record);
+
+            result.write(rs);
         }
+
+        final String output = new String(baos.toByteArray(), StandardCharsets.UTF_8);
 
         headerBuilder.deleteCharAt(headerBuilder.length() - 1);
         final String headerLine = headerBuilder.toString();
@@ -117,11 +122,177 @@ public class TestWriteCSVResult {
         expectedBuilder.append('"').append(dateValue).append('"').append(',');
         expectedBuilder.append('"').append(timeValue).append('"').append(',');
         expectedBuilder.append('"').append(timestampValue).append('"').append(',');
-        expectedBuilder.append(",\"48\",");
+        expectedBuilder.append(",\"48\",,");
         final String expectedValues = expectedBuilder.toString();
 
         assertEquals(expectedValues, values);
     }
+
+    @Test
+    public void testExtraFieldInWriteRecord() throws IOException {
+        final CSVFormat csvFormat = CSVFormat.DEFAULT.withEscape('\\').withQuoteMode(QuoteMode.NONE).withRecordSeparator("\n");
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new HashMap<>();
+        values.put("id", "1");
+        values.put("name", "John");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        final String output;
+        try (final WriteCSVResult writer = new WriteCSVResult(csvFormat, schema, new SchemaNameAsAttribute(), baos,
+            RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat(), true)) {
+
+            writer.beginRecordSet();
+            writer.write(record);
+            writer.finishRecordSet();
+            writer.flush();
+            output = baos.toString();
+        }
+
+        assertEquals("id\n1\n", output);
+    }
+
+    @Test
+    public void testExtraFieldInWriteRawRecord() throws IOException {
+        final CSVFormat csvFormat = CSVFormat.DEFAULT.withEscape('\\').withQuoteMode(QuoteMode.NONE).withRecordSeparator("\n");
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        values.put("name", "John");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        final String output;
+        try (final WriteCSVResult writer = new WriteCSVResult(csvFormat, schema, new SchemaNameAsAttribute(), baos,
+            RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat(), true)) {
+
+            writer.beginRecordSet();
+            writer.writeRawRecord(record);
+            writer.finishRecordSet();
+            writer.flush();
+            output = baos.toString();
+        }
+
+        assertEquals("id,name\n1,John\n", output);
+    }
+
+    @Test
+    public void testMissingFieldWriteRecord() throws IOException {
+        final CSVFormat csvFormat = CSVFormat.DEFAULT.withEscape('\\').withQuoteMode(QuoteMode.NONE).withRecordSeparator("\n");
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        final String output;
+        try (final WriteCSVResult writer = new WriteCSVResult(csvFormat, schema, new SchemaNameAsAttribute(), baos,
+            RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat(), true)) {
+
+            writer.beginRecordSet();
+            writer.writeRecord(record);
+            writer.finishRecordSet();
+            writer.flush();
+            output = baos.toString();
+        }
+
+        assertEquals("id,name\n1,\n", output);
+    }
+
+    @Test
+    public void testMissingFieldWriteRawRecord() throws IOException {
+        final CSVFormat csvFormat = CSVFormat.DEFAULT.withEscape('\\').withQuoteMode(QuoteMode.NONE).withRecordSeparator("\n");
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        final String output;
+        try (final WriteCSVResult writer = new WriteCSVResult(csvFormat, schema, new SchemaNameAsAttribute(), baos,
+            RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat(), true)) {
+
+            writer.beginRecordSet();
+            writer.writeRawRecord(record);
+            writer.finishRecordSet();
+            writer.flush();
+            output = baos.toString();
+        }
+
+        assertEquals("id,name\n1,\n", output);
+    }
+
+
+    @Test
+    public void testMissingAndExtraFieldWriteRecord() throws IOException {
+        final CSVFormat csvFormat = CSVFormat.DEFAULT.withEscape('\\').withQuoteMode(QuoteMode.NONE).withRecordSeparator("\n");
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        values.put("dob", "1/1/1970");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        final String output;
+        try (final WriteCSVResult writer = new WriteCSVResult(csvFormat, schema, new SchemaNameAsAttribute(), baos,
+            RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat(), true)) {
+
+            writer.beginRecordSet();
+            writer.writeRecord(record);
+            writer.finishRecordSet();
+            writer.flush();
+            output = baos.toString();
+        }
+
+        assertEquals("id,name\n1,\n", output);
+    }
+
+    @Test
+    public void testMissingAndExtraFieldWriteRawRecord() throws IOException {
+        final CSVFormat csvFormat = CSVFormat.DEFAULT.withEscape('\\').withQuoteMode(QuoteMode.NONE).withRecordSeparator("\n");
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        values.put("dob", "1/1/1970");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        final String output;
+        try (final WriteCSVResult writer = new WriteCSVResult(csvFormat, schema, new SchemaNameAsAttribute(), baos,
+            RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat(), true)) {
+
+            writer.beginRecordSet();
+            writer.writeRawRecord(record);
+            writer.finishRecordSet();
+            writer.flush();
+            output = baos.toString();
+        }
+
+        assertEquals("id,dob,name\n1,1/1/1970,\n", output);
+    }
+
 
     private DateFormat getDateFormat(final String format) {
         final DateFormat df = new SimpleDateFormat(format);

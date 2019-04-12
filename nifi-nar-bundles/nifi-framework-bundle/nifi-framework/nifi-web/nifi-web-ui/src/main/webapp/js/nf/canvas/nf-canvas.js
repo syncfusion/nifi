@@ -84,7 +84,9 @@
     var groupName = null;
     var permissions = null;
     var parentGroupId = null;
+    var managedAuthorizer = false;
     var configurableAuthorizer = false;
+    var configurableUsersAndGroups = false;
     var svg = null;
     var canvas = null;
 
@@ -97,6 +99,7 @@
             currentUser: '../nifi-api/flow/current-user',
             controllerBulletins: '../nifi-api/flow/controller/bulletins',
             kerberos: '../nifi-api/access/kerberos',
+            oidc: '../nifi-api/access/oidc/exchange',
             revision: '../nifi-api/flow/revision',
             banners: '../nifi-api/flow/banners'
         }
@@ -174,7 +177,8 @@
             // refresh the graph
             nfGraph.expireCaches(now);
             nfGraph.set(processGroupFlow.flow, $.extend({
-                'selectAll': false
+                'selectAll': false,
+                'overrideRevisionCheck': nfClusterSummary.didConnectedStateChange()
             }, options));
 
             // update component visibility
@@ -777,8 +781,16 @@
          * Initialize NiFi.
          */
         init: function () {
-            // attempt kerberos authentication
+            // attempt kerberos/oidc authentication
             var ticketExchange = $.Deferred(function (deferred) {
+                var successfulAuthentication = function (jwt) {
+                    // get the payload and store the token with the appropriate expiration
+                    var token = nfCommon.getJwtPayload(jwt);
+                    var expiration = parseInt(token['exp'], 10) * nfCommon.MILLIS_PER_SECOND;
+                    nfStorage.setItem('jwt', jwt, expiration);
+                    deferred.resolve();
+                };
+
                 if (nfStorage.hasItem('jwt')) {
                     deferred.resolve();
                 } else {
@@ -787,13 +799,17 @@
                         url: config.urls.kerberos,
                         dataType: 'text'
                     }).done(function (jwt) {
-                        // get the payload and store the token with the appropriate expiration
-                        var token = nfCommon.getJwtPayload(jwt);
-                        var expiration = parseInt(token['exp'], 10) * nfCommon.MILLIS_PER_SECOND;
-                        nfStorage.setItem('jwt', jwt, expiration);
-                        deferred.resolve();
+                        successfulAuthentication(jwt);
                     }).fail(function () {
-                        deferred.reject();
+                        $.ajax({
+                            type: 'POST',
+                            url: config.urls.oidc,
+                            dataType: 'text'
+                        }).done(function (jwt) {
+                            successfulAuthentication(jwt)
+                        }).fail(function () {
+                            deferred.reject();
+                        });
                     });
                 }
             }).promise();
@@ -819,7 +835,7 @@
                     }).fail(function (xhr, status, error) {
                         // there is no anonymous access and we don't know this user - open the login page which handles login/registration/etc
                         if (xhr.status === 401) {
-                            window.location = '/nifi/login';
+                            window.location = '../nifi/login';
                         } else {
                             deferred.reject(xhr, status, error);
                         }
@@ -877,6 +893,22 @@
         },
 
         /**
+         * Set whether the authorizer is managed.
+         *
+         * @param bool The boolean value representing whether the authorizer is managed
+         */
+        setManagedAuthorizer: function (bool) {
+            managedAuthorizer = bool;
+        },
+
+        /**
+         * Returns whether the authorizer is managed.
+         */
+        isManagedAuthorizer: function () {
+            return managedAuthorizer;
+        },
+
+        /**
          * Set whether the authorizer is configurable.
          *
          * @param bool The boolean value representing whether the authorizer is configurable.
@@ -890,6 +922,22 @@
          */
         isConfigurableAuthorizer: function () {
             return configurableAuthorizer;
+        },
+
+        /**
+         * Set whether the users and groups is configurable.
+         *
+         * @param bool The boolean value representing whether the users and groups is configurable.
+         */
+        setConfigurableUsersAndGroups: function(bool){
+            configurableUsersAndGroups = bool;
+        },
+
+        /**
+         * Returns whether the users and groups is configurable.
+         */
+        isConfigurableUsersAndGroups: function () {
+            return configurableUsersAndGroups;
         },
 
         /**

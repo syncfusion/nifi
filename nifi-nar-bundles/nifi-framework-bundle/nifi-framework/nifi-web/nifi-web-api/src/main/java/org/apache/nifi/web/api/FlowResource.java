@@ -24,15 +24,9 @@ import com.wordnik.swagger.annotations.ApiResponse;
 import com.wordnik.swagger.annotations.ApiResponses;
 import com.wordnik.swagger.annotations.Authorization;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.nifi.authorization.AccessDeniedException;
-import org.apache.nifi.authorization.AuthorizationRequest;
-import org.apache.nifi.authorization.AuthorizationResult;
-import org.apache.nifi.authorization.AuthorizationResult.Result;
 import org.apache.nifi.authorization.Authorizer;
 import org.apache.nifi.authorization.RequestAction;
-import org.apache.nifi.authorization.UserContextKeys;
 import org.apache.nifi.authorization.resource.Authorizable;
-import org.apache.nifi.authorization.resource.ResourceFactory;
 import org.apache.nifi.authorization.user.NiFiUser;
 import org.apache.nifi.authorization.user.NiFiUserUtils;
 import org.apache.nifi.bundle.Bundle;
@@ -42,6 +36,8 @@ import org.apache.nifi.cluster.coordination.node.NodeConnectionState;
 import org.apache.nifi.cluster.manager.NodeResponse;
 import org.apache.nifi.cluster.protocol.NodeIdentifier;
 import org.apache.nifi.controller.ScheduledState;
+import org.apache.nifi.controller.service.ControllerServiceNode;
+import org.apache.nifi.controller.service.ControllerServiceState;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.nar.NarClassLoaders;
 import org.apache.nifi.util.NiFiProperties;
@@ -67,6 +63,7 @@ import org.apache.nifi.web.api.dto.search.SearchResultsDTO;
 import org.apache.nifi.web.api.dto.status.ControllerStatusDTO;
 import org.apache.nifi.web.api.entity.AboutEntity;
 import org.apache.nifi.web.api.entity.ActionEntity;
+import org.apache.nifi.web.api.entity.ActivateControllerServicesEntity;
 import org.apache.nifi.web.api.entity.BannerEntity;
 import org.apache.nifi.web.api.entity.BulletinBoardEntity;
 import org.apache.nifi.web.api.entity.ClusteSummaryEntity;
@@ -124,6 +121,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -204,30 +202,10 @@ public class FlowResource extends ApplicationResource {
      * Authorizes access to the flow.
      */
     private void authorizeFlow() {
-        final NiFiUser user = NiFiUserUtils.getNiFiUser();
-
-        final Map<String, String> userContext;
-        if (!StringUtils.isBlank(user.getClientAddress())) {
-            userContext = new HashMap<>();
-            userContext.put(UserContextKeys.CLIENT_ADDRESS.name(), user.getClientAddress());
-        } else {
-            userContext = null;
-        }
-
-        final AuthorizationRequest request = new AuthorizationRequest.Builder()
-                .resource(ResourceFactory.getFlowResource())
-                .identity(user.getIdentity())
-                .anonymous(user.isAnonymous())
-                .accessAttempt(true)
-                .action(RequestAction.READ)
-                .userContext(userContext)
-                .explanationSupplier(() -> "Unable to view the user interface.")
-                .build();
-
-        final AuthorizationResult result = authorizer.authorize(request);
-        if (!Result.Approved.equals(result.getResult())) {
-            throw new AccessDeniedException(result.getExplanation());
-        }
+        serviceFacade.authorizeAccess(lookup -> {
+            final Authorizable flow = lookup.getFlow();
+            flow.authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+        });
     }
 
     // ----
@@ -255,7 +233,7 @@ public class FlowResource extends ApplicationResource {
     )
     public Response generateClientId() {
         authorizeFlow();
-        return clusterContext(generateOkResponse(generateUuid())).build();
+        return generateOkResponse(generateUuid()).build();
     }
 
     /**
@@ -291,7 +269,7 @@ public class FlowResource extends ApplicationResource {
         }
 
         final FlowConfigurationEntity entity = serviceFacade.getFlowConfiguration();
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -328,7 +306,7 @@ public class FlowResource extends ApplicationResource {
         final CurrentUserEntity entity = serviceFacade.getCurrentUser();
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -374,7 +352,7 @@ public class FlowResource extends ApplicationResource {
         // get this process group flow
         final ProcessGroupFlowEntity entity = serviceFacade.getProcessGroupFlow(groupId);
         populateRemainingFlowContent(entity.getProcessGroupFlow());
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     // -------------------
@@ -414,7 +392,7 @@ public class FlowResource extends ApplicationResource {
         }
 
         // get all the controller services
-        final Set<ControllerServiceEntity> controllerServices = serviceFacade.getControllerServices(null);
+        final Set<ControllerServiceEntity> controllerServices = serviceFacade.getControllerServices(null, false, false);
         controllerServiceResource.populateRemainingControllerServiceEntitiesContent(controllerServices);
 
         // create the response entity
@@ -423,7 +401,7 @@ public class FlowResource extends ApplicationResource {
         entity.setControllerServices(controllerServices);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -452,11 +430,10 @@ public class FlowResource extends ApplicationResource {
             }
     )
     public Response getControllerServicesFromGroup(
-            @ApiParam(
-                    value = "The process group id.",
-                    required = true
-            )
-            @PathParam("id") String groupId) throws InterruptedException {
+            @ApiParam(value = "The process group id.", required = true) @PathParam("id") String groupId,
+            @ApiParam("Whether or not to include parent/ancestory process groups") @QueryParam("includeAncestorGroups") @DefaultValue("true") boolean includeAncestorGroups,
+            @ApiParam("Whether or not to include descendant process groups") @QueryParam("includeDescendantGroups") @DefaultValue("false") boolean includeDescendantGroups
+            ) throws InterruptedException {
 
         authorizeFlow();
 
@@ -465,7 +442,7 @@ public class FlowResource extends ApplicationResource {
         }
 
         // get all the controller services
-        final Set<ControllerServiceEntity> controllerServices = serviceFacade.getControllerServices(groupId);
+        final Set<ControllerServiceEntity> controllerServices = serviceFacade.getControllerServices(groupId, includeAncestorGroups, includeDescendantGroups);
         controllerServiceResource.populateRemainingControllerServiceEntitiesContent(controllerServices);
 
         // create the response entity
@@ -474,7 +451,7 @@ public class FlowResource extends ApplicationResource {
         entity.setControllerServices(controllerServices);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     // ---------------
@@ -522,7 +499,7 @@ public class FlowResource extends ApplicationResource {
         entity.setReportingTasks(reportingTasks);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -538,8 +515,7 @@ public class FlowResource extends ApplicationResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Path("process-groups/{id}")
     @ApiOperation(
-            value = "Schedule or unschedule comopnents in the specified Process Group.",
-            notes = "",
+            value = "Schedule or unschedule components in the specified Process Group.",
             response = ScheduleComponentsEntity.class,
             authorizations = {
                     @Authorization(value = "Read - /flow", type = ""),
@@ -597,7 +573,7 @@ public class FlowResource extends ApplicationResource {
 
                 // ensure authorized for each processor we will attempt to schedule
                 group.findAllProcessors().stream()
-                        .filter(ScheduledState.RUNNING.equals(state) ? ProcessGroup.SCHEDULABLE_PROCESSORS : ProcessGroup.UNSCHEDULABLE_PROCESSORS)
+                    .filter(ScheduledState.RUNNING.equals(state) ? ProcessGroup.SCHEDULABLE_PROCESSORS : ProcessGroup.UNSCHEDULABLE_PROCESSORS)
                         .filter(processor -> processor.isAuthorized(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser()))
                         .forEach(processor -> {
                             componentIds.add(processor.getIdentifier());
@@ -605,7 +581,7 @@ public class FlowResource extends ApplicationResource {
 
                 // ensure authorized for each input port we will attempt to schedule
                 group.findAllInputPorts().stream()
-                        .filter(ScheduledState.RUNNING.equals(state) ? ProcessGroup.SCHEDULABLE_PORTS : ProcessGroup.UNSCHEDULABLE_PORTS)
+                    .filter(ScheduledState.RUNNING.equals(state) ? ProcessGroup.SCHEDULABLE_PORTS : ProcessGroup.UNSCHEDULABLE_PORTS)
                         .filter(inputPort -> inputPort.isAuthorized(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser()))
                         .forEach(inputPort -> {
                             componentIds.add(inputPort.getIdentifier());
@@ -613,7 +589,7 @@ public class FlowResource extends ApplicationResource {
 
                 // ensure authorized for each output port we will attempt to schedule
                 group.findAllOutputPorts().stream()
-                        .filter(ScheduledState.RUNNING.equals(state) ? ProcessGroup.SCHEDULABLE_PORTS : ProcessGroup.UNSCHEDULABLE_PORTS)
+                    .filter(ScheduledState.RUNNING.equals(state) ? ProcessGroup.SCHEDULABLE_PORTS : ProcessGroup.UNSCHEDULABLE_PORTS)
                         .filter(outputPort -> outputPort.isAuthorized(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser()))
                         .forEach(outputPort -> {
                             componentIds.add(outputPort.getIdentifier());
@@ -667,8 +643,130 @@ public class FlowResource extends ApplicationResource {
                             componentsToSchedule.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> getRevision(e.getValue(), e.getKey())));
 
                     // update the process group
-                    final ScheduleComponentsEntity entity = serviceFacade.scheduleComponents(id, scheduledState, componentRevisions);
-                    return clusterContext(generateOkResponse(entity)).build();
+                final ScheduleComponentsEntity entity = serviceFacade.scheduleComponents(id, scheduledState, componentRevisions);
+                    return generateOkResponse(entity).build();
+                }
+        );
+    }
+
+
+    @PUT
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("process-groups/{id}/controller-services")
+    @ApiOperation(value = "Enable or disable Controller Services in the specified Process Group.",
+        response = ActivateControllerServicesEntity.class,
+        authorizations = {
+            @Authorization(value = "Read - /flow", type = ""),
+            @Authorization(value = "Write - /{component-type}/{uuid} - For every service being enabled/disabled", type = "")
+        })
+    @ApiResponses(
+            value = {
+                    @ApiResponse(code = 400, message = "NiFi was unable to complete the request because it was invalid. The request should not be retried without modification."),
+                    @ApiResponse(code = 401, message = "Client could not be authenticated."),
+                    @ApiResponse(code = 403, message = "Client is not authorized to make this request."),
+                    @ApiResponse(code = 404, message = "The specified resource could not be found."),
+                    @ApiResponse(code = 409, message = "The request was valid but NiFi was not in the appropriate state to process it. Retrying the same request later may be successful.")
+            }
+    )
+    public Response activateControllerServices(
+            @Context HttpServletRequest httpServletRequest,
+            @ApiParam(value = "The process group id.", required = true)
+            @PathParam("id") String id,
+            @ApiParam(value = "The request to schedule or unschedule. If the comopnents in the request are not specified, all authorized components will be considered.", required = true)
+            final ActivateControllerServicesEntity requestEntity) {
+
+        // ensure the same id is being used
+        if (!id.equals(requestEntity.getId())) {
+            throw new IllegalArgumentException(String.format("The process group id (%s) in the request body does "
+                + "not equal the process group id of the requested resource (%s).", requestEntity.getId(), id));
+        }
+
+        final ControllerServiceState state;
+        if (requestEntity.getState() == null) {
+            throw new IllegalArgumentException("The controller service state must be specified.");
+        } else {
+            try {
+                state = ControllerServiceState.valueOf(requestEntity.getState());
+            } catch (final IllegalArgumentException iae) {
+                throw new IllegalArgumentException(String.format("The controller service state must be one of [%s].",
+                    StringUtils.join(EnumSet.of(ControllerServiceState.ENABLED, ControllerServiceState.DISABLED), ", ")));
+            }
+        }
+
+        // ensure its a supported scheduled state
+        if (ControllerServiceState.DISABLING.equals(state) || ControllerServiceState.ENABLING.equals(state)) {
+            throw new IllegalArgumentException(String.format("The scheduled must be one of [%s].",
+                StringUtils.join(EnumSet.of(ControllerServiceState.ENABLED, ControllerServiceState.DISABLED), ", ")));
+        }
+
+        // if the components are not specified, gather all components and their current revision
+        if (requestEntity.getComponents() == null) {
+            // get the current revisions for the components being updated
+            final Set<Revision> revisions = serviceFacade.getRevisionsFromGroup(id, group -> {
+                final Set<String> componentIds = new HashSet<>();
+
+                final Predicate<ControllerServiceNode> filter;
+                if (ControllerServiceState.ENABLED.equals(state)) {
+                    filter = service -> !service.isActive() && service.isValid();
+                } else {
+                    filter = service -> service.isActive();
+                }
+
+                group.findAllControllerServices().stream()
+                    .filter(filter)
+                    .filter(service -> service.isAuthorized(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser()))
+                    .forEach(service -> componentIds.add(service.getIdentifier()));
+                return componentIds;
+            });
+
+            // build the component mapping
+            final Map<String, RevisionDTO> componentsToSchedule = new HashMap<>();
+            revisions.forEach(revision -> {
+                final RevisionDTO dto = new RevisionDTO();
+                dto.setClientId(revision.getClientId());
+                dto.setVersion(revision.getVersion());
+                componentsToSchedule.put(revision.getComponentId(), dto);
+            });
+
+            // set the components and their current revision
+            requestEntity.setComponents(componentsToSchedule);
+        }
+
+        if (isReplicateRequest()) {
+            return replicate(HttpMethod.PUT, requestEntity);
+        }
+
+        final Map<String, RevisionDTO> requestComponentsToSchedule = requestEntity.getComponents();
+        final Map<String, Revision> requestComponentRevisions =
+                requestComponentsToSchedule.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> getRevision(e.getValue(), e.getKey())));
+        final Set<Revision> requestRevisions = new HashSet<>(requestComponentRevisions.values());
+
+        return withWriteLock(
+                serviceFacade,
+                requestEntity,
+                requestRevisions,
+                lookup -> {
+                    // ensure access to the flow
+                    authorizeFlow();
+
+                    // ensure access to every component being scheduled
+                    requestComponentsToSchedule.keySet().forEach(componentId -> {
+                        final Authorizable authorizable = lookup.getControllerService(componentId).getAuthorizable();
+                        authorizable.authorize(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser());
+                    });
+                },
+                () -> serviceFacade.verifyActivateControllerServices(id, state, requestComponentRevisions.keySet()),
+                (revisions, scheduleComponentsEntity) -> {
+                final ControllerServiceState serviceState = ControllerServiceState.valueOf(scheduleComponentsEntity.getState());
+
+                    final Map<String, RevisionDTO> componentsToSchedule = scheduleComponentsEntity.getComponents();
+                    final Map<String, Revision> componentRevisions =
+                            componentsToSchedule.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> getRevision(e.getValue(), e.getKey())));
+
+                    // update the controller services
+                final ActivateControllerServicesEntity entity = serviceFacade.activateControllerServices(id, serviceState, componentRevisions);
+                    return generateOkResponse(entity).build();
                 }
         );
     }
@@ -715,7 +813,7 @@ public class FlowResource extends ApplicationResource {
         entity.setSearchResultsDTO(results);
 
         // generate the response
-        return clusterContext(noCache(Response.ok(entity))).build();
+        return noCache(Response.ok(entity)).build();
     }
 
     /**
@@ -758,7 +856,7 @@ public class FlowResource extends ApplicationResource {
         entity.setControllerStatus(controllerStatus);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -815,7 +913,7 @@ public class FlowResource extends ApplicationResource {
         entity.setClusterSummary(clusterConfiguration);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -855,7 +953,7 @@ public class FlowResource extends ApplicationResource {
         }
 
         final ControllerBulletinsEntity entity = serviceFacade.getControllerBulletins();
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -899,7 +997,7 @@ public class FlowResource extends ApplicationResource {
         entity.setBanners(bannerDTO);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -956,7 +1054,7 @@ public class FlowResource extends ApplicationResource {
         entity.setProcessorTypes(serviceFacade.getProcessorTypes(bundleGroupFilter, bundleArtifactFilter, typeFilter));
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1041,7 +1139,7 @@ public class FlowResource extends ApplicationResource {
                 bundleGroupFilter, bundleArtifactFilter, typeFilter));
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1098,7 +1196,7 @@ public class FlowResource extends ApplicationResource {
         entity.setReportingTaskTypes(serviceFacade.getReportingTaskTypes(bundleGroupFilter, bundleArtifactFilter, typeFilter));
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1139,7 +1237,7 @@ public class FlowResource extends ApplicationResource {
         entity.setPrioritizerTypes(serviceFacade.getWorkQueuePrioritizerTypes());
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1198,7 +1296,7 @@ public class FlowResource extends ApplicationResource {
         entity.setAbout(aboutDTO);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     // --------------
@@ -1307,7 +1405,7 @@ public class FlowResource extends ApplicationResource {
         entity.setBulletinBoard(bulletinBoard);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     // ------
@@ -1384,7 +1482,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified processor status
         final ProcessorStatusEntity entity = serviceFacade.getProcessorStatus(id);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1457,7 +1555,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified input port status
         final PortStatusEntity entity = serviceFacade.getInputPortStatus(id);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1530,7 +1628,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified output port status
         final PortStatusEntity entity = serviceFacade.getOutputPortStatus(id);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1546,7 +1644,7 @@ public class FlowResource extends ApplicationResource {
     @Path("remote-process-groups/{id}/status")
     @ApiOperation(
             value = "Gets status for a remote process group",
-            response = ProcessorStatusEntity.class,
+            response = RemoteProcessGroupStatusEntity.class,
             authorizations = {
                     @Authorization(value = "Read - /flow", type = "")
             }
@@ -1603,7 +1701,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified remote process group status
         final RemoteProcessGroupStatusEntity entity = serviceFacade.getRemoteProcessGroupStatus(id);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1684,7 +1782,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the status
         final ProcessGroupStatusEntity entity = serviceFacade.getProcessGroupStatus(groupId, recursive);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1757,7 +1855,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified connection status
         final ConnectionStatusEntity entity = serviceFacade.getConnectionStatus(id);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     // --------------
@@ -1807,7 +1905,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified processor status history
         final StatusHistoryEntity entity = serviceFacade.getProcessorStatusHistory(id);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1853,7 +1951,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified processor status history
         final StatusHistoryEntity entity = serviceFacade.getProcessGroupStatusHistory(groupId);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1899,7 +1997,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified processor status history
         final StatusHistoryEntity entity = serviceFacade.getRemoteProcessGroupStatusHistory(id);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -1945,7 +2043,7 @@ public class FlowResource extends ApplicationResource {
 
         // get the specified processor status history
         final StatusHistoryEntity entity = serviceFacade.getConnectionStatusHistory(id);
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     // -------
@@ -2225,28 +2323,8 @@ public class FlowResource extends ApplicationResource {
             }
 
             // a component for the specified id could not be found, attempt to authorize based on read to the controller
-            final Map<String, String> userContext;
-            if (!StringUtils.isBlank(user.getClientAddress())) {
-                userContext = new HashMap<>();
-                userContext.put(UserContextKeys.CLIENT_ADDRESS.name(), user.getClientAddress());
-            } else {
-                userContext = null;
-            }
-
-            final AuthorizationRequest request = new AuthorizationRequest.Builder()
-                    .resource(ResourceFactory.getControllerResource())
-                    .identity(user.getIdentity())
-                    .anonymous(user.isAnonymous())
-                    .accessAttempt(true)
-                    .action(RequestAction.READ)
-                    .userContext(userContext)
-                    .explanationSupplier(() -> String.format("Unable to find component with id '%s' and unable to view the controller.", componentId))
-                    .build();
-
-            final AuthorizationResult result = authorizer.authorize(request);
-            if (!Result.Approved.equals(result.getResult())) {
-                throw new AccessDeniedException(result.getExplanation());
-            }
+            final Authorizable controller = lookup.getController();
+            controller.authorize(authorizer, RequestAction.READ, user);
         });
 
         // Note: History requests are not replicated throughout the cluster and are instead handled by the nodes independently
@@ -2306,7 +2384,7 @@ public class FlowResource extends ApplicationResource {
         entity.setGenerated(new Date());
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     // --------------------

@@ -1206,12 +1206,10 @@ public class SiteToSiteRestApiClient implements Closeable {
 
     public void setConnectTimeoutMillis(final int connectTimeoutMillis) {
         this.connectTimeoutMillis = connectTimeoutMillis;
-        setupRequestConfig();
     }
 
     public void setReadTimeoutMillis(final int readTimeoutMillis) {
         this.readTimeoutMillis = readTimeoutMillis;
-        setupRequestConfig();
     }
 
     public static String getFirstUrl(final String clusterUrlStr) {
@@ -1289,11 +1287,11 @@ public class SiteToSiteRestApiClient implements Closeable {
     }
 
     /**
-     * Resolve NiFi API url with leniency. This method does following conversion on uri path:
+     * Resolve dataintegration API url with leniency. This method does following conversion on uri path:
      * <ul>
-     * <li>/ to /nifi-api</li>
-     * <li>/nifi to /nifi-api</li>
-     * <li>/some/path/ to /some/path/nifi-api</li>
+     * <li>/ to /dataintegration-api</li>
+     * <li>/dataintegration to /dataintegration-api</li>
+     * <li>/some/path/ to /some/path/dataintegration-api</li>
      * </ul>
      * @param clusterUrl url to be resolved
      * @return resolved url
@@ -1312,15 +1310,15 @@ public class SiteToSiteRestApiClient implements Closeable {
         String uriPath = clusterUrl.getPath().trim();
 
         if (StringUtils.isEmpty(uriPath) || uriPath.equals("/")) {
-            uriPath = "/nifi";
+            uriPath = "/dataintegration";
         } else if (uriPath.endsWith("/")) {
             uriPath = uriPath.substring(0, uriPath.length() - 1);
         }
 
-        if (uriPath.endsWith("/nifi")) {
+        if (uriPath.endsWith("/dataintegration")) {
             uriPath += "-api";
-        } else if (!uriPath.endsWith("/nifi-api")) {
-            uriPath += "/nifi-api";
+        } else if (!uriPath.endsWith("/dataintegration-api")) {
+            uriPath += "/dataintegration-api";
         }
 
         try {
@@ -1331,7 +1329,7 @@ public class SiteToSiteRestApiClient implements Closeable {
     }
 
     public void setBaseUrl(final String scheme, final String host, final int port) {
-        setBaseUrl(scheme, host, port, "/nifi-api");
+        setBaseUrl(scheme, host, port, "/dataintegration-api");
     }
 
     private void setBaseUrl(final String scheme, final String host, final int port, final String path) {

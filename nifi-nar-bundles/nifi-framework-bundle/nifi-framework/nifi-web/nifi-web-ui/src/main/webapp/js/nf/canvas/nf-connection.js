@@ -52,6 +52,7 @@
 
     var nfSelectable;
     var nfConnectionConfiguration;
+    var nfQuickSelect;
     var nfContextMenu;
 
     // the dimensions for the connection label
@@ -793,7 +794,7 @@
                                 // update URL deep linking params
                                 nfCanvasUtils.setURLParameters();
                             })
-                            .call(nfContextMenu.activate);
+                            .call(nfContextMenu.activate).call(nfQuickSelect.activate);
 
                         // connection label
                         connectionLabelContainer.append('rect')
@@ -1560,10 +1561,12 @@
          *
          * @param nfSelectableRef   The nfSelectable module.
          * @param nfContextMenuRef   The nfContextMenu module.
+         * @param nfQuickSelectRef   The nfQuickSelect module.
          */
-        init: function (nfSelectableRef, nfContextMenuRef, nfConnectionConfigurationRef) {
+        init: function (nfSelectableRef, nfContextMenuRef, nfQuickSelectRef, nfConnectionConfigurationRef) {
             nfSelectable = nfSelectableRef;
             nfContextMenu = nfContextMenuRef;
+            nfQuickSelect = nfQuickSelectRef;
             nfConnectionConfiguration = nfConnectionConfigurationRef;
 
             connectionMap = d3.map();
@@ -2000,16 +2003,18 @@
         set: function (connectionEntities, options) {
             var selectAll = false;
             var transition = false;
+            var overrideRevisionCheck = false;
             if (nfCommon.isDefinedAndNotNull(options)) {
                 selectAll = nfCommon.isDefinedAndNotNull(options.selectAll) ? options.selectAll : selectAll;
                 transition = nfCommon.isDefinedAndNotNull(options.transition) ? options.transition : transition;
+                overrideRevisionCheck = nfCommon.isDefinedAndNotNull(options.overrideRevisionCheck) ? options.overrideRevisionCheck : overrideRevisionCheck;
             }
 
             var set = function (proposedConnectionEntity) {
                 var currentConnectionEntity = connectionMap.get(proposedConnectionEntity.id);
 
                 // set the connection if appropriate due to revision and wasn't previously removed
-                if (nfClient.isNewerRevision(currentConnectionEntity, proposedConnectionEntity) && !removedCache.has(proposedConnectionEntity.id)) {
+                if ((nfClient.isNewerRevision(currentConnectionEntity, proposedConnectionEntity) && !removedCache.has(proposedConnectionEntity.id)) || overrideRevisionCheck === true) {
                     connectionMap.set(proposedConnectionEntity.id, $.extend({
                         type: 'Connection'
                     }, proposedConnectionEntity));

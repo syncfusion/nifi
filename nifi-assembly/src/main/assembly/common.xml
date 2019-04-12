@@ -27,7 +27,7 @@
                 <include>nifi-bootstrap</include>
                 <include>slf4j-api</include>
                 <include>logback-classic</include>
-                <include>nifi-api</include>
+                <include>dataintegration-api</include>
             </includes>
         </dependencySet>
 
@@ -46,11 +46,30 @@
             <unpackOptions>
                 <filtered>true</filtered>
                 <includes>
-                    <include>conf/*</include>
+                    <include>conf/*.xml</include>
+                    <include>conf/*.conf</include>
+                    <include>conf/*.properties</include>
                 </includes>
             </unpackOptions>
         </dependencySet>
-
+        <dependencySet>
+            <scope>runtime</scope>
+            <useProjectArtifact>false</useProjectArtifact>
+            <outputDirectory>./</outputDirectory>
+            <directoryMode>0770</directoryMode>
+            <fileMode>0664</fileMode>
+            <useTransitiveFiltering>true</useTransitiveFiltering>
+            <includes>
+                <include>nifi-resources</include>
+            </includes>
+            <unpack>true</unpack>
+             <unpackOptions>
+                <filtered>false</filtered>
+                <includes>
+                    <include>conf/*.db</include>
+                </includes>
+            </unpackOptions>
+        </dependencySet>
         <!-- Write out the bin directory contents -->
         <dependencySet>
             <scope>runtime</scope>
@@ -88,6 +107,25 @@
                     <exclude>LICENSE</exclude>
                     <exclude>NOTICE</exclude>
                 </excludes>
+            </unpackOptions>
+        </dependencySet>
+		
+		 <dependencySet>
+            <scope>runtime</scope>
+            <useProjectArtifact>false</useProjectArtifact>
+            <outputDirectory>./</outputDirectory>
+            <directoryMode>0770</directoryMode>
+            <fileMode>0770</fileMode>
+            <useTransitiveFiltering>true</useTransitiveFiltering>
+            <includes>
+                <include>nifi-resources</include>
+            </includes>
+            <unpack>true</unpack>
+            <unpackOptions>
+                <filtered>false</filtered>
+                <includes>
+                    <include>SQL_jars/*</include>
+                </includes>
             </unpackOptions>
         </dependencySet>
     </dependencySets>

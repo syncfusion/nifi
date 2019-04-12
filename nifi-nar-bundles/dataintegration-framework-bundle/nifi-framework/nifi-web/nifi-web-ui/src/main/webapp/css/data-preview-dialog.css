@@ -1,0 +1,189 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : Oct 25, 2017, 2:07:43 PM
+    Author     : sangavi.eswaramoorth
+*/
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+    Styles for the custom processor ui shell.
+*/
+
+#data-preview-dialog {
+    display: none;
+    z-index: 1201;
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 35px;
+}
+#data-preview-shell-container {
+    background: #fff;
+    padding: 25px;
+    position: absolute;
+    top: 0px;
+    bottom: 0px;
+    left: 0px;
+    right: 0px;
+    overflow: hidden;
+}
+#data-preview-shell-close-container {
+    float: right;
+}
+#shell-undock-button {
+    display: none;
+    float: left;
+    margin: 0px 5px 0px;
+    color: #004849;
+    font-size: 16px;
+}
+#shell-close-button {
+    float: left;
+    color: #004849;
+    font-size: 16px;
+}
+#data-preview-container {
+    position: absolute;
+    top: 55px;
+    right: 4px;
+    bottom: 0px;
+    left: 0px;
+    margin: 20px;
+    overflow: hidden;
+}
+#data-preview-tabs-content {
+    margin-top: 20px;
+    overflow: hidden!important;
+}
+#data-preview-header-text {
+    font-size: 18px;
+    font-weight: bold;
+    color: #448dd5;
+    font-family: Segoe UI;
+    margin-top: 5px;
+}
+#data-preview-filter-container {
+    height: 32px;
+    width: 100%;
+    float: right;
+    margin-bottom: 20px;
+}
+#auto-refresh-interval{
+    margin-left: 10px;
+    width: 100px;
+    float: right;
+    margin-right: 10px;
+}
+.auto-refresh-container{
+    display:none;
+}
+#data-preview-content-filename {
+    position: absolute;
+    line-height: normal;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 500;
+    font-family: 'Segoe UI';
+}
+#data-preview-content-type {
+    position: absolute;
+    top: 20px;
+    line-height: normal;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 500;
+    font-family: 'Segoe UI';
+}
+.preview-view-as-label {
+    line-height: 30px;
+    font-size: 12px;
+    float: right;
+    font-weight: normal;
+    font-family: Segoe UI;
+    color: #262626;
+}
+.data-preview-content-label {
+    font-size: 12px;
+    font-weight: 500;
+    font-family: Segoe UI;
+    padding-bottom: 4px;
+    color: #262626;
+    margin-right: 8px;
+}
+.data-preview-content-value {
+    font-size: 12px;
+    font-weight: 500;
+    font-family: Segoe UI;
+    padding-bottom: 4px;
+    color: #262626;
+}
+#data-preview-filter-type {
+    margin-left: 10px;
+    width: 80px;
+    float: right;
+}
+#inputDataGrid,
+#outputDataGrid {
+    margin-top: 55px;
+}
+#inputDataGrid .e-headercell,
+#inputDataGrid .e-headercell-hover,
+#outputDataGrid .e-headercell,
+#outputDataGrid .e-headercell-hover {
+    height: 32px!important;
+}
+#inputDataGrid tr,
+#outputDataGrid tr.e-row,
+#outputDataGrid tr.e-alt_row,
+#outputDataGrid tr,
+#outputDataGrid tr.e-row,
+#outputDataGrid tr.e-alt_row {
+    height: 28px!important;
+}
+#inputDataGrid .e-rowcell,
+#outputDataGrid .e-rowcell {
+    font-size: 12px!important;
+}
+.CodeMirror-linenumber {
+    padding: 1px 0px 0px 0px!important;
+    min-width: 40px!important;
+    font-size: 12px!important;
+    text-align: right!important;
+}
+#data-preview-refresh-container {
+    position: absolute;
+    bottom: 0px;
+    left: 0px;
+    right: 20px;
+}
+
+#data-preview-loading-container {
+    float: left;
+    width: 16px;
+    height: 16px;
+    background-color: transparent;
+    margin-top: 4px;
+    margin-left: 3px;
+}
+#data-preview-last-refreshed{
+ float:right;   
+}

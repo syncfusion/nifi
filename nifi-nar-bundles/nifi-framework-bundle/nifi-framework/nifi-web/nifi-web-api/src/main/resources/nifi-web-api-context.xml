@@ -284,6 +284,7 @@
         <property name="requestReplicator" ref="requestReplicator" />
         <property name="authorizer" ref="authorizer"/>
         <property name="flowController" ref="flowController" />
+        <property name="dtoFactory" ref="dtoFactory" />
     </bean>
     <bean id="processorResource" class="org.apache.nifi.web.api.ProcessorResource" scope="singleton">
         <property name="serviceFacade" ref="serviceFacade"/>
@@ -382,6 +383,8 @@
     </bean>
     <bean id="accessResource" class="org.apache.nifi.web.api.AccessResource" scope="singleton">
         <property name="loginIdentityProvider" ref="loginIdentityProvider"/>
+        <property name="oidcService" ref="oidcService"/>
+        <property name="knoxService" ref="knoxService"/>
         <property name="x509AuthenticationProvider" ref="x509AuthenticationProvider"/>
         <property name="certificateExtractor" ref="certificateExtractor"/>
         <property name="principalExtractor" ref="principalExtractor"/>

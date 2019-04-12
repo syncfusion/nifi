@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <!-- Licensed to the Apache Software Foundation (ASF) under one or more 
         contributor license agreements. See the NOTICE file distributed with this 
         work for additional information regarding copyright ownership. The ASF licenses 
@@ -14,7 +13,7 @@
     <parent>
         <groupId>org.apache.nifi</groupId>
         <artifactId>nifi-record-serialization-services-bundle</artifactId>
-        <version>1.2.0-SNAPSHOT</version>
+        <version>1.4.0</version>
     </parent>
 
     <artifactId>nifi-record-serialization-services</artifactId>
@@ -23,7 +22,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.nifi</groupId>
-            <artifactId>nifi-api</artifactId>
+            <artifactId>dataintegration-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
@@ -35,7 +34,15 @@
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-record</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-schema-registry-service-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-avro-record-utils</artifactId>
         </dependency>
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>
@@ -70,7 +77,11 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
-            <version>1.8.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-mock</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -83,9 +94,12 @@
                     <excludes combine.children="append">
                         <exclude>src/test/resources/avro/datatypes.avsc</exclude>
                         <exclude>src/test/resources/avro/logical-types.avsc</exclude>
+                        <exclude>src/test/resources/avro/logical-types-nullable.avsc</exclude>
+                        <exclude>src/test/resources/avro/multiple-types.avsc</exclude>
                         <exclude>src/test/resources/csv/extra-white-space.csv</exclude>
                         <exclude>src/test/resources/csv/multi-bank-account.csv</exclude>
                         <exclude>src/test/resources/csv/single-bank-account.csv</exclude>
+                        <exclude>src/test/resources/csv/multi-bank-account_escapedchar.csv</exclude>
                         <exclude>src/test/resources/grok/error-with-stack-trace.log</exclude>
                         <exclude>src/test/resources/grok/nifi-log-sample-multiline-with-stacktrace.log</exclude>
                         <exclude>src/test/resources/grok/nifi-log-sample.log</exclude>
@@ -96,6 +110,7 @@
                         <exclude>src/test/resources/json/json-with-unicode.json</exclude>
                         <exclude>src/test/resources/json/primitive-type-array.json</exclude>
                         <exclude>src/test/resources/json/single-bank-account.json</exclude>
+                        <exclude>src/test/resources/json/single-bank-account-wrong-field-type.json</exclude>
                         <exclude>src/test/resources/json/single-element-nested-array.json</exclude>
                         <exclude>src/test/resources/json/single-element-nested.json</exclude>
                         <exclude>src/test/resources/json/output/dataTypes.json</exclude>

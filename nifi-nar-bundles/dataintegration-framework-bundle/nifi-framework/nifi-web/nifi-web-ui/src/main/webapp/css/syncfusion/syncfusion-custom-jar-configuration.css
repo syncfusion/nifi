@@ -1,0 +1,61 @@
+    #custom-jar-configuration {
+    width: 450px!important;
+    min-width: 400px !important;
+    min-height: 200px !important;
+    height: 325px;
+    top: 147px !important;
+    left: 475.695px !important;
+}
+
+    .jar-info-content{
+        font-family: Segoe UI;
+        font-size: 12px;
+        text-align: left;
+        display:none;
+        line-height: 170%;
+    }
+
+
+    #existing-jarinfo-content{
+        font-family: Segoe UI;
+        font-size: 12px;
+        text-align: left;
+        padding-top: 9px;
+    }
+ 
+    .upload-jar-loader{
+        height: 50px;
+        width: 49px;
+        background-image: url(../../images/waitingpopup.gif);
+        position: absolute;
+        z-index: 2;
+        margin-top: 19%;
+        margin-left: 41%;
+        float: left;
+        display: none
+    }
+    
+    .upload-jarform-styles{
+    float: right;
+    cursor: pointer;
+    position: relative;
+    top: -23px;
+    height: 32px;
+    width: initial;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: #448dd5;
+    color: #fff;
+    }
+    #uploadErrorMessage{
+       display: none;
+       font-family:Segoe UI;
+       font-size: 12px;
+       text-align: left;
+       padding-top: 17px;
+       color: rgb(247, 9, 9);
+    }
+    .small-modal {
+    height: 247px !important;
+    min-height: 20px;
+}

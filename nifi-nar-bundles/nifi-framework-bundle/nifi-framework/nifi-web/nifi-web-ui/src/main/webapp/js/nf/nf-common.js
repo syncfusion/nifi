@@ -61,6 +61,8 @@
             } else {
                 checkbox.removeClass('checkbox-checked').addClass('checkbox-unchecked');
             }
+            // emit a state change event
+            checkbox.trigger('change');
         });
 
         // setup click areas for custom checkboxes
@@ -86,15 +88,15 @@
         // handle logout
         $('#user-logout').on('click', function () {
             nfStorage.removeItem('jwt');
-            window.location = '/nifi/login';
+            window.location = '../nifi/login';
         });
 
         // handle home
         $('#user-home').on('click', function () {
             if (top !== window) {
-                parent.window.location = '/nifi';
+                parent.window.location = '../nifi';
             } else {
-                window.location = '/nifi';
+                window.location = '../nifi';
             }
         });
     });
@@ -165,11 +167,8 @@
                     }
                 },
                 position: {
-                    at: 'bottom center',
-                    my: 'top center',
-                    adjust: {
-                        y: 5
-                    }
+                    at: 'top center',
+                    my: 'bottom center'
                 }
             }
         },
@@ -329,6 +328,20 @@
         },
 
         /**
+         * Escapes any malicious HTML characters from the value.
+         *
+         * @param row
+         * @param cell
+         * @param value
+         * @param columnDef
+         * @param dataContext
+         * @returns {string}
+         */
+        genericValueFormatter: function (row, cell, value, columnDef, dataContext) {
+            return nfCommon.escapeHtml(value);
+        },
+
+        /**
          * Formats the bundle of a component type for the new instance dialog.
          *
          * @param row
@@ -407,12 +420,21 @@
         },
 
         /**
+         * Formats the class name of this component.
+         *
+         * @param dataContext component datum
+         */
+        formatClassName: function (dataContext) {
+            return nfCommon.substringAfterLast(dataContext.type, '.');
+        },
+
+        /**
          * Formats the type of this component.
          *
          * @param dataContext component datum
          */
         formatType: function (dataContext) {
-            var typeString = nfCommon.substringAfterLast(dataContext.type, '.');
+            var typeString = nfCommon.formatClassName(dataContext);
             if (dataContext.bundle.version !== 'unversioned') {
                 typeString += (' ' + dataContext.bundle.version);
             }
@@ -1184,11 +1206,11 @@
             while (regex.test(string)) {
                 string = string.replace(regex, '$1' + ',' + '$2');
             }
-            return string;
+            return nfCommon.escapeHtml(string);
         },
 
         /**
-         * Formats the specified float using two demical places.
+         * Formats the specified float using two decimal places.
          *
          * @param {float} f
          */

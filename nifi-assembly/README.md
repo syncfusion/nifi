@@ -51,7 +51,7 @@ Apache NiFi was made for dataflow. It supports highly configurable directed grap
 To start NiFi:
 - [linux/osx] execute bin/nifi.sh start
 - [windows] execute bin/start-nifi.bat
-- Direct your browser to http://localhost:8080/nifi/
+- Direct your browser to http://localhost:60017/dataintegration/
 
 ## Getting Help
 If you have questions, you can reach out to our mailing list: dev@nifi.apache.org

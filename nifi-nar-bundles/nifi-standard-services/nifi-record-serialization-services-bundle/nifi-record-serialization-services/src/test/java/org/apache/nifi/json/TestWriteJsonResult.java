@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Date;
@@ -31,12 +32,14 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
 import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.schema.access.SchemaNameAsAttribute;
 import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.MapRecord;
@@ -45,6 +48,7 @@ import org.apache.nifi.serialization.record.RecordField;
 import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.RecordSchema;
 import org.apache.nifi.serialization.record.RecordSet;
+import org.apache.nifi.serialization.record.SerializedForm;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -52,9 +56,6 @@ public class TestWriteJsonResult {
 
     @Test
     public void testDataTypes() throws IOException, ParseException {
-        final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), true, RecordFieldType.DATE.getDefaultFormat(),
-            RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat());
-
         final List<RecordField> fields = new ArrayList<>();
         for (final RecordFieldType fieldType : RecordFieldType.values()) {
             if (fieldType == RecordFieldType.CHOICE) {
@@ -63,15 +64,22 @@ public class TestWriteJsonResult {
                 possibleTypes.add(RecordFieldType.LONG.getDataType());
 
                 fields.add(new RecordField(fieldType.name().toLowerCase(), fieldType.getChoiceDataType(possibleTypes)));
+            } else if (fieldType == RecordFieldType.MAP) {
+                fields.add(new RecordField(fieldType.name().toLowerCase(), fieldType.getMapDataType(RecordFieldType.INT.getDataType())));
             } else {
                 fields.add(new RecordField(fieldType.name().toLowerCase(), fieldType.getDataType()));
             }
         }
         final RecordSchema schema = new SimpleRecordSchema(fields);
 
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
         final DateFormat df = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
         df.setTimeZone(TimeZone.getTimeZone("gmt"));
         final long time = df.parse("2017/01/01 17:00:00.000").getTime();
+
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("height", 48);
+        map.put("width", 96);
 
         final Map<String, Object> valueMap = new LinkedHashMap<>();
         valueMap.put("string", "string");
@@ -90,18 +98,322 @@ public class TestWriteJsonResult {
         valueMap.put("record", null);
         valueMap.put("array", null);
         valueMap.put("choice", 48L);
+        valueMap.put("map", map);
 
         final Record record = new MapRecord(schema, valueMap);
         final RecordSet rs = RecordSet.of(schema, record);
 
-        final String output;
-        try (final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            writer.write(rs, baos);
-            output = baos.toString();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, true,
+            NullSuppression.NEVER_SUPPRESS, RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat())) {
+
+            writer.write(rs);
         }
+
+        final String output = baos.toString();
 
         final String expected = new String(Files.readAllBytes(Paths.get("src/test/resources/json/output/dataTypes.json")));
         assertEquals(expected, output);
     }
 
+
+    @Test
+    public void testWriteSerializedForm() throws IOException {
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("age", RecordFieldType.INT.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values1 = new HashMap<>();
+        values1.put("name", "John Doe");
+        values1.put("age", 42);
+        final String serialized1 = "{ \"name\": \"John Doe\",    \"age\": 42 }";
+        final SerializedForm serializedForm1 = SerializedForm.of(serialized1, "application/json");
+        final Record record1 = new MapRecord(schema, values1, serializedForm1);
+
+        final Map<String, Object> values2 = new HashMap<>();
+        values2.put("name", "Jane Doe");
+        values2.put("age", 43);
+        final String serialized2 = "{ \"name\": \"Jane Doe\",    \"age\": 43 }";
+        final SerializedForm serializedForm2 = SerializedForm.of(serialized2, "application/json");
+        final Record record2 = new MapRecord(schema, values1, serializedForm2);
+
+        final RecordSet rs = RecordSet.of(schema, record1, record2);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, true,
+            NullSuppression.NEVER_SUPPRESS, RecordFieldType.DATE.getDefaultFormat(), RecordFieldType.TIME.getDefaultFormat(), RecordFieldType.TIMESTAMP.getDefaultFormat())) {
+
+            writer.write(rs);
+        }
+
+        final byte[] data = baos.toByteArray();
+
+        final String expected = "[ " + serialized1 + ", " + serialized2 + " ]";
+
+        final String output = new String(data, StandardCharsets.UTF_8);
+        assertEquals(expected, output);
+    }
+
+    @Test
+    public void testTimestampWithNullFormat() throws IOException {
+        final Map<String, Object> values = new HashMap<>();
+        values.put("timestamp", new java.sql.Timestamp(37293723L));
+        values.put("time", new java.sql.Time(37293723L));
+        values.put("date", new java.sql.Date(37293723L));
+
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("timestamp", RecordFieldType.TIMESTAMP.getDataType()));
+        fields.add(new RecordField("time", RecordFieldType.TIME.getDataType()));
+        fields.add(new RecordField("date", RecordFieldType.DATE.getDataType()));
+
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Record record = new MapRecord(schema, values);
+        final RecordSet rs = RecordSet.of(schema, record);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.write(rs);
+        }
+
+        final byte[] data = baos.toByteArray();
+
+        final String expected = "[{\"timestamp\":37293723,\"time\":37293723,\"date\":37293723}]";
+
+        final String output = new String(data, StandardCharsets.UTF_8);
+        assertEquals(expected, output);
+    }
+
+    @Test
+    public void testExtraFieldInWriteRecord() throws IOException {
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new HashMap<>();
+        values.put("id", "1");
+        values.put("name", "John");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.writeRecord(record);
+            writer.finishRecordSet();
+        }
+
+        final byte[] data = baos.toByteArray();
+
+        final String expected = "[{\"id\":\"1\"}]";
+
+        final String output = new String(data, StandardCharsets.UTF_8);
+        assertEquals(expected, output);
+    }
+
+    @Test
+    public void testExtraFieldInWriteRawRecord() throws IOException {
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        values.put("name", "John");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.writeRawRecord(record);
+            writer.finishRecordSet();
+        }
+
+        final byte[] data = baos.toByteArray();
+
+        final String expected = "[{\"id\":\"1\",\"name\":\"John\"}]";
+
+        final String output = new String(data, StandardCharsets.UTF_8);
+        assertEquals(expected, output);
+    }
+
+    @Test
+    public void testMissingFieldInWriteRecord() throws IOException {
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.writeRecord(record);
+            writer.finishRecordSet();
+        }
+
+        final byte[] data = baos.toByteArray();
+
+        final String expected = "[{\"id\":\"1\",\"name\":null}]";
+
+        final String output = new String(data, StandardCharsets.UTF_8);
+        assertEquals(expected, output);
+    }
+
+    @Test
+    public void testMissingFieldInWriteRawRecord() throws IOException {
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.writeRawRecord(record);
+            writer.finishRecordSet();
+        }
+
+        final byte[] data = baos.toByteArray();
+
+        final String expected = "[{\"id\":\"1\"}]";
+
+        final String output = new String(data, StandardCharsets.UTF_8);
+        assertEquals(expected, output);
+    }
+
+    @Test
+    public void testMissingAndExtraFieldInWriteRecord() throws IOException {
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        values.put("dob", "1/1/1970");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.writeRecord(record);
+            writer.finishRecordSet();
+        }
+
+        final byte[] data = baos.toByteArray();
+
+        final String expected = "[{\"id\":\"1\",\"name\":null}]";
+
+        final String output = new String(data, StandardCharsets.UTF_8);
+        assertEquals(expected, output);
+    }
+
+    @Test
+    public void testMissingAndExtraFieldInWriteRawRecord() throws IOException {
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        values.put("dob", "1/1/1970");
+        final Record record = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.writeRawRecord(record);
+            writer.finishRecordSet();
+        }
+
+        final byte[] data = baos.toByteArray();
+
+        final String expected = "[{\"id\":\"1\",\"dob\":\"1/1/1970\"}]";
+
+        final String output = new String(data, StandardCharsets.UTF_8);
+        assertEquals(expected, output);
+    }
+
+    @Test
+    public void testNullSuppression() throws IOException {
+        final List<RecordField> fields = new ArrayList<>();
+        fields.add(new RecordField("id", RecordFieldType.STRING.getDataType()));
+        fields.add(new RecordField("name", RecordFieldType.STRING.getDataType()));
+        final RecordSchema schema = new SimpleRecordSchema(fields);
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("id", "1");
+        final Record recordWithMissingName = new MapRecord(schema, values);
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.write(recordWithMissingName);
+            writer.finishRecordSet();
+        }
+
+        assertEquals("[{\"id\":\"1\",\"name\":null}]", new String(baos.toByteArray(), StandardCharsets.UTF_8));
+
+        baos.reset();
+        try (
+            final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.ALWAYS_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.write(recordWithMissingName);
+            writer.finishRecordSet();
+        }
+
+        assertEquals("[{\"id\":\"1\"}]", new String(baos.toByteArray(), StandardCharsets.UTF_8));
+
+        baos.reset();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.SUPPRESS_MISSING, null, null,
+            null)) {
+            writer.beginRecordSet();
+            writer.write(recordWithMissingName);
+            writer.finishRecordSet();
+        }
+
+        assertEquals("[{\"id\":\"1\"}]", new String(baos.toByteArray(), StandardCharsets.UTF_8));
+
+        // set an explicit null value
+        values.put("name", null);
+        final Record recordWithNullValue = new MapRecord(schema, values);
+
+        baos.reset();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.NEVER_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.write(recordWithNullValue);
+            writer.finishRecordSet();
+        }
+
+        assertEquals("[{\"id\":\"1\",\"name\":null}]", new String(baos.toByteArray(), StandardCharsets.UTF_8));
+
+        baos.reset();
+        try (
+            final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.ALWAYS_SUPPRESS, null, null, null)) {
+            writer.beginRecordSet();
+            writer.write(recordWithNullValue);
+            writer.finishRecordSet();
+        }
+
+        assertEquals("[{\"id\":\"1\"}]", new String(baos.toByteArray(), StandardCharsets.UTF_8));
+
+        baos.reset();
+        try (final WriteJsonResult writer = new WriteJsonResult(Mockito.mock(ComponentLog.class), schema, new SchemaNameAsAttribute(), baos, false, NullSuppression.SUPPRESS_MISSING, null, null,
+            null)) {
+            writer.beginRecordSet();
+            writer.write(recordWithNullValue);
+            writer.finishRecordSet();
+        }
+
+        assertEquals("[{\"id\":\"1\",\"name\":null}]", new String(baos.toByteArray(), StandardCharsets.UTF_8));
+
+    }
 }

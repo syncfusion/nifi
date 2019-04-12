@@ -1,0 +1,125 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+    Login Styles
+*/
+
+#login-message-title {
+    font-size: 18px;
+    color: #294c58;
+    margin-bottom: 16px;
+}
+
+#login-message {
+    font-size: 11px;
+}
+
+.login-title {
+    font-size: 15px;
+    font-weight: bold;
+    font-family: Segoe UI;
+    margin-bottom: 10px;
+    color: #FFFFFF!important;
+}
+
+#login-user-links-container {
+    top: 0px;
+    left: 0px;
+    padding-top: 198px;
+    padding-left: 100px;
+    z-index: 1300;
+    width: 412px;
+}
+
+#login-user-links {
+    float: right;
+    margin-right: 100px;
+}
+
+/*
+    Login
+*/
+
+body.login-body input, body.login-body textarea {
+    width: 310px;
+}
+
+div.login-container {
+    width: 412px;
+}
+
+/*
+    Login Progress
+*/
+
+#login-progress-label {
+    float: right;
+    font-weight: bold;
+    line-height: 16px;
+}
+
+#login-progress-spinner {
+    float: right;
+    width: 16px;
+    height: 16px;
+    background-color: transparent;
+    margin-left: 3px;
+}
+
+#login-submission-container{
+    width:310px;
+}
+
+#user-home{
+    color: white!important;
+}
+
+#username:focus, #password:focus{
+    border: none!important;
+    box-shadow: none!important;
+}
+
+.disable-login-button{
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+#login-submission-button:hover{
+    background-color: #3ca53c!important;
+}
+
+#syncfusion-logo-id{
+    width: 80%;
+    height: 50%;
+    margin-top: 27%;
+}
+
+#login-container{
+    margin-left: 74px;
+    margin-top: 200px;
+}
+
+#login-progress-container{
+    margin-top: 430px;
+    padding-left: 61px;
+}
+.password-hint{
+    font-size: 12px;
+    font-family: "Segoe UI";
+    color: black; 
+}

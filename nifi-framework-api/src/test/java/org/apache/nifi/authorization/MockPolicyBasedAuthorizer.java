@@ -92,6 +92,11 @@ public class MockPolicyBasedAuthorizer extends AbstractPolicyBasedAuthorizer {
     public User getUserByIdentity(String identity) throws AuthorizationAccessException {
         return users.stream().filter(u -> u.getIdentity().equals(identity)).findFirst().get();
     }
+    
+    @Override
+    public Group getGroupByIdentity(String identity) throws AuthorizationAccessException {
+        return groups.stream().filter(g -> g.getName().equals(identity)).findFirst().get();
+    }
 
     @Override
     public User doUpdateUser(User user) throws AuthorizationAccessException {
@@ -180,4 +185,8 @@ public class MockPolicyBasedAuthorizer extends AbstractPolicyBasedAuthorizer {
 
     }
 
+    @Override
+    public void populateDefaultGroups() {
+        
+    }    
 }

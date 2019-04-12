@@ -432,16 +432,16 @@ public class TestHttpClient {
         // Create embedded Jetty server
         // Use less threads to mitigate Gateway Timeout (504) with proxy test
         // Minimum thread pool size = (acceptors=2 + selectors=8 + request=1), defaults to max=200
-        final QueuedThreadPool threadPool = new QueuedThreadPool(20);
+        final QueuedThreadPool threadPool = new QueuedThreadPool(50);
         server = new Server(threadPool);
 
         final ContextHandlerCollection handlerCollection = new ContextHandlerCollection();
 
         final ServletContextHandler contextHandler = new ServletContextHandler();
-        contextHandler.setContextPath("/nifi-api");
+        contextHandler.setContextPath("/dataintegration-api");
 
         final ServletContextHandler wrongPathContextHandler = new ServletContextHandler();
-        wrongPathContextHandler.setContextPath("/wrong/nifi-api");
+        wrongPathContextHandler.setContextPath("/wrong/dataintegration-api");
 
         handlerCollection.setHandlers(new Handler[]{contextHandler, wrongPathContextHandler});
 

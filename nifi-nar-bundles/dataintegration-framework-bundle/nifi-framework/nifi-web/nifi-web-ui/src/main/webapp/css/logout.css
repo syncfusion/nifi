@@ -1,0 +1,54 @@
+#ump-logout-container{
+    width: 400px;
+    height: 250px;
+    position: absolute;
+    background-color: #ffffff;
+    border-radius: 5px;
+    margin: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    padding: 10px;
+}
+#ump-logout-page{
+    margin: 0px;
+    background-color: #2d3138;
+}
+#ump-logout-msg{
+    text-align: center;
+    font-size: 16px;
+    line-height: 40px;
+    height:40px;
+    font-family: Roboto;
+}
+.ump-logout-align{
+    float:left;
+    width: 100%;
+    padding: 10px 0px 10px 0px;
+    justify-content: center;
+    display: flex;
+    align-items: center;
+}
+#ump-logout-logo{
+    margin-top: 25px;
+    height: 50px;
+}
+#ump-login-btn-pnl{
+    height:40px;
+}
+.ump-button{
+    background-color: #009AEF;
+    width: 250px;
+    border: none;
+    color: white;
+    font-size: 16px;
+    font-family: Roboto;
+    cursor:pointer;
+    border-radius: 2.5px;
+    box-shadow: 2px 6px 4px 0 rgba(0,0,0,0.14), 0 3px 5px 0 rgba(0,0,0,0.12), 0 4px 2px 0px rgba(0,0,0,0.2);
+}
+.ump-button:hover{
+    background-color: #008AD7;
+    border:none;
+}

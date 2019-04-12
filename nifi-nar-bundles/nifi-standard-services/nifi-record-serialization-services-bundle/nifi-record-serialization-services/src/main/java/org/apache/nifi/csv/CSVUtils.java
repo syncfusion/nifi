@@ -19,6 +19,7 @@ package org.apache.nifi.csv;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.QuoteMode;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
@@ -33,7 +34,7 @@ public class CSVUtils {
     static final AllowableValue EXCEL = new AllowableValue("excel", "Microsoft Excel", "CSV data follows the format used by Microsoft Excel");
     static final AllowableValue TDF = new AllowableValue("tdf", "Tab-Delimited", "CSV data is Tab-Delimited instead of Comma Delimited");
     static final AllowableValue INFORMIX_UNLOAD = new AllowableValue("informix-unload", "Informix Unload", "The format used by Informix when issuing the UNLOAD TO file_name command");
-    static final AllowableValue INFORMIX_UNLOAD_CSV = new AllowableValue("informix-unload", "Informix Unload Escape Disabled",
+    static final AllowableValue INFORMIX_UNLOAD_CSV = new AllowableValue("informix-unload-csv", "Informix Unload Escape Disabled",
         "The format used by Informix when issuing the UNLOAD TO file_name command with escaping disabled");
     static final AllowableValue MYSQL = new AllowableValue("mysql", "MySQL Format", "CSV data follows the format used by MySQL");
 
@@ -48,7 +49,7 @@ public class CSVUtils {
     static final PropertyDescriptor VALUE_SEPARATOR = new PropertyDescriptor.Builder()
         .name("Value Separator")
         .description("The character that is used to separate values/fields in a CSV Record")
-        .addValidator(new SingleCharacterValidator())
+        .addValidator(CSVValidators.UNESCAPED_SINGLE_CHAR_VALIDATOR)
         .expressionLanguageSupported(false)
         .defaultValue(",")
         .required(true)
@@ -56,22 +57,47 @@ public class CSVUtils {
     static final PropertyDescriptor QUOTE_CHAR = new PropertyDescriptor.Builder()
         .name("Quote Character")
         .description("The character that is used to quote values so that escape characters do not have to be used")
-        .addValidator(new SingleCharacterValidator())
+        .addValidator(new CSVValidators.SingleCharacterValidator())
         .expressionLanguageSupported(false)
         .defaultValue("\"")
         .required(true)
         .build();
+    static final PropertyDescriptor FIRST_LINE_IS_HEADER = new PropertyDescriptor.Builder()
+        .name("Skip Header Line")
+        .displayName("Treat First Line as Header")
+        .description("Specifies whether or not the first line of CSV should be considered a Header or should be considered a record. If the Schema Access Strategy "
+            + "indicates that the columns must be defined in the header, then this property will be ignored, since the header must always be "
+            + "present and won't be processed as a Record. Otherwise, if 'true', then the first line of CSV data will not be processed as a record and if 'false',"
+            + "then the first line will be interpreted as a record.")
+        .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+        .expressionLanguageSupported(false)
+        .allowableValues("true", "false")
+        .defaultValue("false")
+        .required(true)
+        .build();
+    static final PropertyDescriptor IGNORE_CSV_HEADER = new PropertyDescriptor.Builder()
+        .name("ignore-csv-header")
+        .displayName("Ignore CSV Header Column Names")
+        .description("If the first line of a CSV is a header, and the configured schema does not match the fields named in the header line, this controls how "
+            + "the Reader will interpret the fields. If this property is true, then the field names mapped to each column are driven only by the configured schema and "
+            + "any fields not in the schema will be ignored. If this property is false, then the field names found in the CSV Header will be used as the names of the "
+            + "fields.")
+        .expressionLanguageSupported(false)
+        .allowableValues("true", "false")
+        .defaultValue("false")
+        .required(false)
+        .build();
     static final PropertyDescriptor COMMENT_MARKER = new PropertyDescriptor.Builder()
         .name("Comment Marker")
         .description("The character that is used to denote the start of a comment. Any line that begins with this comment will be ignored.")
-        .addValidator(new SingleCharacterValidator())
+        .addValidator(new CSVValidators.SingleCharacterValidator())
         .expressionLanguageSupported(false)
         .required(false)
         .build();
     static final PropertyDescriptor ESCAPE_CHAR = new PropertyDescriptor.Builder()
         .name("Escape Character")
         .description("The character that is used to escape characters that would otherwise have a specific meaning to the CSV Parser.")
-        .addValidator(new SingleCharacterValidator())
+        .addValidator(new CSVValidators.SingleCharacterValidator())
         .expressionLanguageSupported(false)
         .defaultValue("\\")
         .required(true)
@@ -124,7 +150,13 @@ public class CSVUtils {
         .defaultValue("\\n")
         .required(true)
         .build();
-
+    static final PropertyDescriptor INCLUDE_HEADER_LINE = new PropertyDescriptor.Builder()
+        .name("Include Header Line")
+        .description("Specifies whether or not the CSV column names should be written out as the first line.")
+        .allowableValues("true", "false")
+        .defaultValue("true")
+        .required(true)
+        .build();
 
     static CSVFormat createCSVFormat(final ConfigurationContext context) {
         final String formatName = context.getProperty(CSV_FORMAT).getValue();
@@ -148,16 +180,24 @@ public class CSVUtils {
         }
     }
 
+    private static char getUnescapedChar(final ConfigurationContext context, final PropertyDescriptor property) {
+        return StringEscapeUtils.unescapeJava(context.getProperty(property).getValue()).charAt(0);
+    }
+
     private static char getChar(final ConfigurationContext context, final PropertyDescriptor property) {
         return CSVUtils.unescape(context.getProperty(property).getValue()).charAt(0);
     }
 
     private static CSVFormat buildCustomFormat(final ConfigurationContext context) {
-        final char valueSeparator = getChar(context, VALUE_SEPARATOR);
+        final char valueSeparator = getUnescapedChar(context, VALUE_SEPARATOR);
         CSVFormat format = CSVFormat.newFormat(valueSeparator)
             .withAllowMissingColumnNames()
-            .withIgnoreEmptyLines()
-            .withFirstRecordAsHeader();
+            .withIgnoreEmptyLines();
+
+        final PropertyValue skipHeaderPropertyValue = context.getProperty(FIRST_LINE_IS_HEADER);
+        if (skipHeaderPropertyValue.getValue() != null && skipHeaderPropertyValue.asBoolean()) {
+            format = format.withFirstRecordAsHeader();
+        }
 
         format = format.withQuote(getChar(context, QUOTE_CHAR));
         format = format.withEscape(getChar(context, ESCAPE_CHAR));

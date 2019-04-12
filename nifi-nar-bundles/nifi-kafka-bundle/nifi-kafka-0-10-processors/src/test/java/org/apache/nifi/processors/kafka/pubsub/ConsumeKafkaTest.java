@@ -16,18 +16,8 @@
  */
 package org.apache.nifi.processors.kafka.pubsub;
 
-import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.nifi.logging.ComponentLog;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.util.TestRunner;
-import org.apache.nifi.util.TestRunners;
-import org.junit.Test;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import org.junit.Before;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -35,15 +25,22 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.processor.ProcessContext;
+import org.apache.nifi.util.TestRunner;
+import org.apache.nifi.util.TestRunners;
+import org.junit.Before;
+import org.junit.Test;
+
 public class ConsumeKafkaTest {
 
-    Consumer<byte[], byte[]> mockConsumer = null;
     ConsumerLease mockLease = null;
     ConsumerPool mockConsumerPool = null;
 
     @Before
     public void setup() {
-        mockConsumer = mock(Consumer.class);
         mockLease = mock(ConsumerLease.class);
         mockConsumerPool = mock(ConsumerPool.class);
     }
@@ -106,7 +103,7 @@ public class ConsumeKafkaTest {
     public void validateGetAllMessages() throws Exception {
         String groupName = "validateGetAllMessages";
 
-        when(mockConsumerPool.obtainConsumer(anyObject())).thenReturn(mockLease);
+        when(mockConsumerPool.obtainConsumer(anyObject(), anyObject())).thenReturn(mockLease);
         when(mockLease.continuePolling()).thenReturn(Boolean.TRUE, Boolean.TRUE, Boolean.FALSE);
         when(mockLease.commit()).thenReturn(Boolean.TRUE);
 
@@ -117,14 +114,13 @@ public class ConsumeKafkaTest {
             }
         };
         final TestRunner runner = TestRunners.newTestRunner(proc);
-        runner.setValidateExpressionUsage(false);
         runner.setProperty(KafkaProcessorUtils.BOOTSTRAP_SERVERS, "0.0.0.0:1234");
         runner.setProperty(ConsumeKafka_0_10.TOPICS, "foo,bar");
         runner.setProperty(ConsumeKafka_0_10.GROUP_ID, groupName);
         runner.setProperty(ConsumeKafka_0_10.AUTO_OFFSET_RESET, ConsumeKafka_0_10.OFFSET_EARLIEST);
         runner.run(1, false);
 
-        verify(mockConsumerPool, times(1)).obtainConsumer(anyObject());
+        verify(mockConsumerPool, times(1)).obtainConsumer(anyObject(), anyObject());
         verify(mockLease, times(3)).continuePolling();
         verify(mockLease, times(2)).poll();
         verify(mockLease, times(1)).commit();
@@ -137,7 +133,7 @@ public class ConsumeKafkaTest {
     public void validateGetAllMessagesPattern() throws Exception {
         String groupName = "validateGetAllMessagesPattern";
 
-        when(mockConsumerPool.obtainConsumer(anyObject())).thenReturn(mockLease);
+        when(mockConsumerPool.obtainConsumer(anyObject(), anyObject())).thenReturn(mockLease);
         when(mockLease.continuePolling()).thenReturn(Boolean.TRUE, Boolean.TRUE, Boolean.FALSE);
         when(mockLease.commit()).thenReturn(Boolean.TRUE);
 
@@ -148,7 +144,6 @@ public class ConsumeKafkaTest {
             }
         };
         final TestRunner runner = TestRunners.newTestRunner(proc);
-        runner.setValidateExpressionUsage(false);
         runner.setProperty(KafkaProcessorUtils.BOOTSTRAP_SERVERS, "0.0.0.0:1234");
         runner.setProperty(ConsumeKafka_0_10.TOPICS, "(fo.*)|(ba)");
         runner.setProperty(ConsumeKafka_0_10.TOPIC_TYPE, "pattern");
@@ -156,7 +151,7 @@ public class ConsumeKafkaTest {
         runner.setProperty(ConsumeKafka_0_10.AUTO_OFFSET_RESET, ConsumeKafka_0_10.OFFSET_EARLIEST);
         runner.run(1, false);
 
-        verify(mockConsumerPool, times(1)).obtainConsumer(anyObject());
+        verify(mockConsumerPool, times(1)).obtainConsumer(anyObject(), anyObject());
         verify(mockLease, times(3)).continuePolling();
         verify(mockLease, times(2)).poll();
         verify(mockLease, times(1)).commit();
@@ -169,7 +164,7 @@ public class ConsumeKafkaTest {
     public void validateGetErrorMessages() throws Exception {
         String groupName = "validateGetErrorMessages";
 
-        when(mockConsumerPool.obtainConsumer(anyObject())).thenReturn(mockLease);
+        when(mockConsumerPool.obtainConsumer(anyObject(), anyObject())).thenReturn(mockLease);
         when(mockLease.continuePolling()).thenReturn(true, false);
         when(mockLease.commit()).thenReturn(Boolean.FALSE);
 
@@ -180,14 +175,13 @@ public class ConsumeKafkaTest {
             }
         };
         final TestRunner runner = TestRunners.newTestRunner(proc);
-        runner.setValidateExpressionUsage(false);
         runner.setProperty(KafkaProcessorUtils.BOOTSTRAP_SERVERS, "0.0.0.0:1234");
         runner.setProperty(ConsumeKafka_0_10.TOPICS, "foo,bar");
         runner.setProperty(ConsumeKafka_0_10.GROUP_ID, groupName);
         runner.setProperty(ConsumeKafka_0_10.AUTO_OFFSET_RESET, ConsumeKafka_0_10.OFFSET_EARLIEST);
         runner.run(1, false);
 
-        verify(mockConsumerPool, times(1)).obtainConsumer(anyObject());
+        verify(mockConsumerPool, times(1)).obtainConsumer(anyObject(), anyObject());
         verify(mockLease, times(2)).continuePolling();
         verify(mockLease, times(1)).poll();
         verify(mockLease, times(1)).commit();

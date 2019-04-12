@@ -229,10 +229,10 @@
      */
     var nameFormatter = function (row, cell, value, columnDef, dataContext) {
         if (!dataContext.permissions.canRead) {
-            return '<span class="blank">' + dataContext.id + '</span>';
+            return '<span class="blank">' + nfCommon.escapeHtml(dataContext.id) + '</span>';
         }
 
-        return dataContext.component.name;
+        return nfCommon.escapeHtml(dataContext.component.name);
     };
 
     /**
@@ -508,7 +508,8 @@
                 name: 'Tags',
                 field: 'tags',
                 sortable: true,
-                resizable: true
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
             }
         ];
 
@@ -870,7 +871,7 @@
             }
 
             // allow policy configuration conditionally
-            if (nfCanvasUtils.isConfigurableAuthorizer() && nfCommon.canAccessTenants()) {
+            if (nfCanvasUtils.isManagedAuthorizer() && nfCommon.canAccessTenants()) {
                 markup += '<div title="Access Policies" class="pointer edit-access-policies fa fa-key" style="margin-top: 2px;"></div>';
             }
 
@@ -992,7 +993,10 @@
 
                     // open the documentation for this reporting task
                     nfShell.showPage('../nifi-docs/documentation?' + $.param({
-                            select: nfCommon.substringAfterLast(reportingTaskEntity.component.type, '.')
+                            select: reportingTaskEntity.component.type,
+                            group: reportingTaskEntity.component.bundle.group,
+                            artifact: reportingTaskEntity.component.bundle.artifact,
+                            version: reportingTaskEntity.component.bundle.version
                         })).done(function () {
                         nfSettings.showSettings();
                     });
@@ -1220,7 +1224,7 @@
                     name: 'General',
                     tabContentId: 'general-settings-tab-content'
                 }, {
-                    name: 'Controller Services',
+                    name: 'Reporting Task Controller Services',
                     tabContentId: 'controller-services-tab-content'
                 }, {
                     name: 'Reporting Tasks',
@@ -1245,9 +1249,9 @@
 
                             // update the tooltip on the button
                             $('#new-service-or-task').attr('title', function () {
-                                if (tab === 'Controller Services') {
+                                if (tab === 'Reporting Task Controller Services') {
                                     $('#settings-save').hide();
-                                    return 'Create a new controller service';
+                                    return 'Create a new reporting task controller service';
                                 } else if (tab === 'Reporting Tasks') {
                                     $('#settings-save').hide();
                                     return 'Create a new reporting task';
@@ -1258,7 +1262,7 @@
                             $('div.controller-settings-table').css('top', '0');
                         }
 
-                        if (tab === 'Controller Services') {
+                        if (tab === 'Reporting Task Controller Services') {
                             $('#controller-cs-availability').show();
                         } else if (tab === 'Reporting Tasks') {
                             $('#controller-cs-availability').hide();
@@ -1278,7 +1282,7 @@
             // create a new controller service or reporting task
             $('#new-service-or-task').on('click', function () {
                 var selectedTab = $('#settings-tabs li.selected-tab').text();
-                if (selectedTab === 'Controller Services') {
+                if (selectedTab === 'Reporting Task Controller Services') {
                     var controllerServicesUri = config.urls.api + '/controller/controller-services';
                     nfControllerServices.promptNewControllerService(controllerServicesUri, getControllerServicesTable());
                 } else if (selectedTab === 'Reporting Tasks') {

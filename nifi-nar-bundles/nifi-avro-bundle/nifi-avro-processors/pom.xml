@@ -15,7 +15,7 @@ language governing permissions and limitations under the License. -->
     <parent>
         <groupId>org.apache.nifi</groupId>
         <artifactId>nifi-avro-bundle</artifactId>
-        <version>1.2.0-SNAPSHOT</version>
+        <version>1.4.0</version>
     </parent>
 
     <artifactId>nifi-avro-processors</artifactId>
@@ -24,7 +24,7 @@ language governing permissions and limitations under the License. -->
     <dependencies>
         <dependency>
             <groupId>org.apache.nifi</groupId>
-            <artifactId>nifi-api</artifactId>
+            <artifactId>dataintegration-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>

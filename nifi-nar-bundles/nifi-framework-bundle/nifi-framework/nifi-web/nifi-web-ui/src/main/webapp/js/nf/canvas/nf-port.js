@@ -47,6 +47,7 @@
     var nfConnectable;
     var nfDraggable;
     var nfSelectable;
+    var nfQuickSelect;
     var nfContextMenu;
 
     var PREVIEW_NAME_LENGTH = 15;
@@ -192,7 +193,7 @@
             });
 
         // make ports selectable
-        port.call(nfSelectable.activate).call(nfContextMenu.activate);
+        port.call(nfSelectable.activate).call(nfContextMenu.activate).call(nfQuickSelect.activate);
 
         // only activate dragging and connecting if appropriate
         port.filter(function (d) {
@@ -529,12 +530,14 @@
          * @param nfDraggableRef   The nfDraggable module.
          * @param nfSelectableRef   The nfSelectable module.
          * @param nfContextMenuRef   The nfContextMenu module.
+         * @param nfQuickSelectRef   The nfQuickSelect module.
          */
-        init: function (nfConnectableRef, nfDraggableRef, nfSelectableRef, nfContextMenuRef) {
+        init: function (nfConnectableRef, nfDraggableRef, nfSelectableRef, nfContextMenuRef, nfQuickSelectRef) {
             nfConnectable = nfConnectableRef;
             nfDraggable = nfDraggableRef;
             nfSelectable = nfSelectableRef;
             nfContextMenu = nfContextMenuRef;
+            nfQuickSelect = nfQuickSelectRef;
 
             portMap = d3.map();
             removedCache = d3.map();
@@ -606,9 +609,11 @@
         set: function (portEntities, options) {
             var selectAll = false;
             var transition = false;
+            var overrideRevisionCheck = false;
             if (nfCommon.isDefinedAndNotNull(options)) {
                 selectAll = nfCommon.isDefinedAndNotNull(options.selectAll) ? options.selectAll : selectAll;
                 transition = nfCommon.isDefinedAndNotNull(options.transition) ? options.transition : transition;
+                overrideRevisionCheck = nfCommon.isDefinedAndNotNull(options.overrideRevisionCheck) ? options.overrideRevisionCheck : overrideRevisionCheck;
             }
 
             // determine the appropriate dimensions for this port
@@ -621,7 +626,7 @@
                 var currentPortEntity = portMap.get(proposedPortEntity.id);
 
                 // set the port if appropriate due to revision and wasn't previously removed
-                if (nfClient.isNewerRevision(currentPortEntity, proposedPortEntity) && !removedCache.has(proposedPortEntity.id)) {
+                if ((nfClient.isNewerRevision(currentPortEntity, proposedPortEntity) && !removedCache.has(proposedPortEntity.id)) || overrideRevisionCheck === true) {
                     // add the port
                     portMap.set(proposedPortEntity.id, $.extend({
                         type: 'Port',

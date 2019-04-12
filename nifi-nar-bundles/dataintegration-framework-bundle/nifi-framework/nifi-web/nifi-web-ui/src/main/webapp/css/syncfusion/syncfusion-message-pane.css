@@ -1,0 +1,102 @@
+    .copy-right-container {
+        margin: 10px;
+        font-size: 12px;
+        float: left;
+        width: 400px;
+        height: 20px;
+        margin-top: 20px;
+    }
+    .syncfusion-footer-logo {
+        float: right;
+        width: auto;
+    }
+    .poweredby-span {
+        float: left;
+        margin-top: 20px;
+        font-size: 12px;
+        margin-right: 10px;
+    }
+    .footer-logo {
+        float: right;
+        background: url(../../images/sync-logo.png);
+        width: 100px;
+        height: 30px;
+        background-repeat: no-repeat;
+         margin-top: 12px;
+        background-size: 90px;
+    }
+    .session-footer-container {
+        bottom: 0;
+        position: absolute;
+        color: #fff;
+        width: 100%;
+        height: 40px;
+    }
+    .redirection-link {
+        text-decoration: underline;
+        color: #448dd5;
+        cursor: pointer;
+        background-size:100%;
+    }
+    .main-container {
+        width: 100%;
+        height: 100%;
+        background-repeat: no-repeat;
+        background-size:100%;
+        background: #468ED5;
+    }
+    .home-button {
+        font-family: segoe UI!important;
+        font-size: 12px!important;
+        text-align: center;
+        margin-bottom: 20px;
+        width: 100%;
+        float: left;
+        color: #000000;
+        line-height: 27px!important;
+    }
+    .session-container {
+        padding: 0px 24px;
+        float: right;
+        position: absolute;
+        margin-left: 74px;
+        margin-top: 18%;
+        background: #ffffff;
+        border-radius: 4px;
+        box-shadow: 0px 10px 6px -6px #999;
+    }
+    #message-title {
+        color: #000000;
+        font-size: 12px!important;
+        padding-bottom: 16px;
+        font-weight: normal;
+        width: 100%;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    #session-button-container {
+        display: block;
+        width: 100%;
+    }
+    #message-content {
+        color: #000000;
+        font-weight: normal;
+    }
+    .session-setting-field {
+        max-height: 100px;
+        line-height: normal;
+        width: 350px;
+        overflow: auto;
+        font-size: 12px;
+        margin-bottom: 16px;
+    }
+    .logged-user-name {
+        color: #448dd5;
+        font-family: segoe UI!important;
+        font-size: 15px!important;
+        text-align: center;
+        width: 100%;
+        margin-top: 16px;
+        margin-bottom: 20px;
+    }

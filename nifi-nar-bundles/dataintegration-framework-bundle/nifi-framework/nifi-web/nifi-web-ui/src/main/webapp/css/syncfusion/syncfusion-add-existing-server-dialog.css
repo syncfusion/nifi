@@ -1,0 +1,35 @@
+            #add-existing-server-dialog{
+                min-width: 450px;
+                min-height:330px;
+                background-color: #fff;
+                height: auto!important;
+                overflow-x:hidden;
+                overflow-y:hidden;
+            }
+            #add-existing-server-dialog .setting {
+                float: left;
+                width: 100%;
+            }
+            #add-existing-server-dialog .setting-name {
+                float: left;
+                width: 45%;
+                margin-top: 6px;
+            }
+            #add-existing-server-dialog .setting-field {
+                float: left;
+                color: rgba(0, 0, 0, 0.87);
+                width: 45%;
+                padding-left:4%;
+            }
+            #add-existing-server-dialog .dialog-content {
+                overflow-y: hidden;
+            }
+            .error-status {
+                color: darkred
+            }
+            #add-existing-server-dialog input[type=text]{
+                width:200px;
+            }
+            #add-existing-server-dialog .secure-checkbox{   
+                box-shadow: none!important;
+            }

@@ -25,15 +25,14 @@
                 'nf.Common',
                 'nf.Dialog',
                 'nf.Client',
-                'nf.ControllerServices',
                 'nf.Settings',
                 'nf.UniversalCapture',
                 'nf.CustomUi',
                 'nf.CanvasUtils',
                 'nf.ReportingTask',
                 'nf.Processor'],
-            function ($, d3, nfErrorHandler, nfCommon, nfDialog, nfClient, nfControllerServices, nfSettings, nfUniversalCapture, nfCustomUi, nfCanvasUtils, nfReportingTask, nfProcessor) {
-                return (nf.ControllerService = factory($, d3, nfErrorHandler, nfCommon, nfDialog, nfClient, nfControllerServices, nfSettings, nfUniversalCapture, nfCustomUi, nfCanvasUtils, nfReportingTask, nfProcessor));
+            function ($, d3, nfErrorHandler, nfCommon, nfDialog, nfClient, nfSettings, nfUniversalCapture, nfCustomUi, nfCanvasUtils, nfReportingTask, nfProcessor) {
+                return (nf.ControllerService = factory($, d3, nfErrorHandler, nfCommon, nfDialog, nfClient, nfSettings, nfUniversalCapture, nfCustomUi, nfCanvasUtils, nfReportingTask, nfProcessor));
             });
     } else if (typeof exports === 'object' && typeof module === 'object') {
         module.exports = (nf.ControllerService =
@@ -43,7 +42,6 @@
                 require('nf.Common'),
                 require('nf.Dialog'),
                 require('nf.Client'),
-                require('nf.ControllerServices'),
                 require('nf.Settings'),
                 require('nf.UniversalCapture'),
                 require('nf.CustomUi'),
@@ -57,7 +55,6 @@
             root.nf.Common,
             root.nf.Dialog,
             root.nf.Client,
-            root.nf.ControllerServices,
             root.nf.Settings,
             root.nf.UniversalCapture,
             root.nf.CustomUi,
@@ -65,8 +62,10 @@
             root.nf.ReportingTask,
             root.nf.Processor);
     }
-}(this, function ($, d3, nfErrorHandler, nfCommon, nfDialog, nfClient, nfControllerServices, nfSettings, nfUniversalCapture, nfCustomUi, nfCanvasUtils, nfReportingTask, nfProcessor) {
+}(this, function ($, d3, nfErrorHandler, nfCommon, nfDialog, nfClient, nfSettings, nfUniversalCapture, nfCustomUi, nfCanvasUtils, nfReportingTask, nfProcessor) {
     'use strict';
+
+    var nfControllerServices;
 
     var config = {
         edit: 'edit',
@@ -508,13 +507,19 @@
                     var referencingServiceReferencesContainer = $('<div class="referencing-component-references hidden"></div>');
                     var serviceTwist = $('<div class="service expansion-button collapsed pointer"></div>').on('click', function () {
                         if (serviceTwist.hasClass('collapsed')) {
-                            var controllerServiceGrid = serviceTable.data('gridInstance');
-                            var controllerServiceData = controllerServiceGrid.getData();
-                            var referencingServiceEntity = controllerServiceData.getItemById(referencingComponent.id);
-                            var referencingService = referencingServiceEntity.component;
-
                             // create the markup for the references
-                            createReferencingComponents(serviceTable, referencingServiceReferencesContainer, referencingService.referencingComponents);
+                            if (referencingComponent.referenceCycle === true) {
+                                referencingServiceReferencesContainer.append('<div class="unset">Reference cycle detected.</div>');
+                            } else {
+                                var controllerServiceGrid = serviceTable.data('gridInstance');
+                                var controllerServiceData = controllerServiceGrid.getData();
+
+                                // get the controller service and expand its referencing services
+                                getControllerService(referencingComponent.id, controllerServiceData).done(function (controllerServiceEntity) {
+                                    var cs = controllerServiceEntity.component;
+                                    createReferencingComponents(serviceTable, referencingServiceReferencesContainer, cs.referencingComponents);
+                                });
+                            }
                         } else {
                             referencingServiceReferencesContainer.empty();
                         }
@@ -581,7 +586,7 @@
         });
 
         // query for the bulletins
-        queryBulletins(referencingComponentIds).done(function (response) {
+        nfCanvasUtils.queryBulletins(referencingComponentIds).done(function (response) {
             var bulletins = response.bulletinBoard.bulletins;
             updateReferencingComponentBulletins(bulletins);
         });
@@ -615,25 +620,6 @@
         createReferenceBlock('Reporting Tasks', tasks);
         createReferenceBlock('Controller Services', services);
         createReferenceBlock('Unauthorized', unauthorized);
-    };
-
-    /**
-     * Queries for bulletins for the specified components.
-     *
-     * @param {array} componentIds
-     * @returns {deferred}
-     */
-    var queryBulletins = function (componentIds) {
-        var ids = componentIds.join('|');
-
-        return $.ajax({
-            type: 'GET',
-            url: '../nifi-api/flow/bulletin-board',
-            data: {
-                sourceId: ids
-            },
-            dataType: 'json'
-        }).fail(nfErrorHandler.handleAjaxError);
     };
 
     /**
@@ -683,7 +669,7 @@
                         return service.state === 'DISABLED';
                     }
                 }, function (service) {
-                    return queryBulletins([service.id]);
+                    return nfCanvasUtils.queryBulletins([service.id]);
                 }, pollCondition);
 
                 // once the service has updated, resolve and render the updated service
@@ -784,7 +770,7 @@
 
         // Note: updated revisions will be retrieved after updateReferencingSchedulableComponents is invoked
 
-        // wait unil the polling of each service finished
+        // wait until the polling of each service finished
         return $.Deferred(function (deferred) {
             updated.done(function (response) {
                 // update the controller service
@@ -804,8 +790,9 @@
                     // start polling for each controller service
                     var polling = [];
                     services.forEach(function (controllerServiceId) {
-                        var referencingService = controllerServiceData.getItemById(controllerServiceId);
-                        polling.push(stopReferencingSchedulableComponents(referencingService, pollCondition));
+                        getControllerService(controllerServiceId, controllerServiceData).done(function(controllerServiceEntity) {
+                            polling.push(stopReferencingSchedulableComponents(controllerServiceEntity, pollCondition));
+                        });
                     });
 
                     // wait until polling has finished
@@ -819,6 +806,29 @@
                 deferred.reject();
             });
         }).promise();
+    };
+
+    /**
+     * Gets the controller service with the specified id. If the service is present in the specified
+     * controllerServiceData it will be used. Otherwise it will query for it.
+     *
+     * @param controllerServiceId   service id
+     * @param controllerServiceData service table data
+     * @returns {deferred} the controller service entity
+     */
+    var getControllerService = function (controllerServiceId, controllerServiceData) {
+        var controllerServiceEntity = controllerServiceData.getItemById(controllerServiceId);
+        if (nfCommon.isDefinedAndNotNull(controllerServiceEntity)) {
+            return $.Deferred(function (deferred) {
+                deferred.resolve(controllerServiceEntity);
+            });
+        } else {
+            return $.ajax({
+                type: 'GET',
+                url: '../nifi-api/controller-services/' + encodeURIComponent(controllerServiceId),
+                dataType: 'json'
+            }).fail(nfErrorHandler.handleAjaxError);
+        }
     };
 
     /**
@@ -891,12 +901,12 @@
      * Continues to poll the specified controller service until all referencing schedulable
      * components are stopped (not scheduled and 0 active threads).
      *
-     * @param {object} controllerService
+     * @param {object} controllerServiceEntity
      * @param {function} pollCondition
      */
-    var stopReferencingSchedulableComponents = function (controllerService, pollCondition) {
+    var stopReferencingSchedulableComponents = function (controllerServiceEntity, pollCondition) {
         // continue to poll the service until all schedulable components have stopped
-        return pollService(controllerService, function (service, bulletins) {
+        return pollService(controllerServiceEntity, function (service, bulletins) {
             var referencingComponents = service.referencingComponents;
 
             var stillRunning = false;
@@ -932,19 +942,19 @@
                 }
             });
 
-            return queryBulletins(referencingSchedulableComponents);
+            return nfCanvasUtils.queryBulletins(referencingSchedulableComponents);
         }, pollCondition);
     };
 
     /**
      * Continues to poll until all referencing services are enabled.
      *
-     * @param {object} controllerService
+     * @param {object} controllerServiceEntity
      * @param {function} pollCondition
      */
-    var enableReferencingServices = function (controllerService, pollCondition) {
+    var enableReferencingServices = function (controllerServiceEntity, pollCondition) {
         // continue to poll the service until all referencing services are enabled
-        return pollService(controllerService, function (service, bulletins) {
+        return pollService(controllerServiceEntity, function (service, bulletins) {
             var referencingComponents = service.referencingComponents;
 
             var notEnabled = false;
@@ -977,19 +987,19 @@
                 }
             });
 
-            return queryBulletins(referencingSchedulableComponents);
+            return nfCanvasUtils.queryBulletins(referencingSchedulableComponents);
         }, pollCondition);
     };
 
     /**
      * Continues to poll until all referencing services are disabled.
      *
-     * @param {object} controllerService
+     * @param {object} controllerServiceEntity
      * @param {function} pollCondition
      */
-    var disableReferencingServices = function (controllerService, pollCondition) {
+    var disableReferencingServices = function (controllerServiceEntity, pollCondition) {
         // continue to poll the service until all referencing services are disabled
-        return pollService(controllerService, function (service, bulletins) {
+        return pollService(controllerServiceEntity, function (service, bulletins) {
             var referencingComponents = service.referencingComponents;
 
             var notDisabled = false;
@@ -1022,7 +1032,7 @@
                 }
             });
 
-            return queryBulletins(referencingSchedulableComponents);
+            return nfCanvasUtils.queryBulletins(referencingSchedulableComponents);
         }, pollCondition);
     };
 
@@ -1072,13 +1082,13 @@
                 // start polling for each controller service
                 var polling = [];
                 services.forEach(function (controllerServiceId) {
-                    var referencingService = controllerServiceData.getItemById(controllerServiceId);
-
-                    if (enabled) {
-                        polling.push(enableReferencingServices(referencingService, pollCondition));
-                    } else {
-                        polling.push(disableReferencingServices(referencingService, pollCondition));
-                    }
+                    getControllerService(controllerServiceId, controllerServiceData).done(function(controllerServiceEntity) {
+                        if (enabled) {
+                            polling.push(enableReferencingServices(controllerServiceEntity, pollCondition));
+                        } else {
+                            polling.push(disableReferencingServices(controllerServiceEntity, pollCondition));
+                        }
+                    });
                 });
 
                 $.when.apply(window, polling).done(function () {
@@ -1135,7 +1145,7 @@
         $('#disable-controller-service-dialog').modal('setButtonModel', buttons).modal('show');
 
         // load the bulletins
-        queryBulletins([controllerService.id]).done(function (response) {
+        nfCanvasUtils.queryBulletins([controllerService.id]).done(function (response) {
             updateBulletins(response.bulletinBoard.bulletins, $('#disable-controller-service-bulletins'));
         });
 
@@ -1187,7 +1197,7 @@
         $('#enable-controller-service-dialog').modal('setButtonModel', buttons).modal('show');
 
         // load the bulletins
-        queryBulletins([controllerService.id]).done(function (response) {
+        nfCanvasUtils.queryBulletins([controllerService.id]).done(function (response) {
             updateBulletins(response.bulletinBoard.bulletins, $('#enable-controller-service-bulletins'));
         });
 
@@ -1625,7 +1635,9 @@
         /**
          * Initializes the controller service configuration dialog.
          */
-        init: function () {
+        init: function (nfControllerServicesRef) {
+            nfControllerServices = nfControllerServicesRef;
+
             // initialize the configuration dialog tabs
             $('#controller-service-configuration-tabs').tabbs({
                 tabStyle: 'tab',
@@ -1782,6 +1794,8 @@
                 currentTable = serviceTable;
             }
             var controllerServiceDialog = $('#controller-service-configuration');
+
+            controllerServiceDialog.find('.dialog-header .dialog-header-text').text('Configure Controller Service');
             if (controllerServiceDialog.data('mode') !== config.edit || currentTable !== serviceTable) {
                 // update the visibility
                 $('#controller-service-configuration .controller-service-read-only').hide();
@@ -1795,7 +1809,6 @@
                     descriptorDeferred: getControllerServicePropertyDescriptor,
                     controllerServiceCreatedDeferred: function (response) {
                         var controllerServicesUri;
-                        var createdControllerServicesTable;
 
                         // calculate the correct uri
                         var createdControllerService = response.component;
@@ -1984,6 +1997,8 @@
          */
         showDetails: function (serviceTable, controllerServiceEntity) {
             var controllerServiceDialog = $('#controller-service-configuration');
+
+            controllerServiceDialog.find('.dialog-header .dialog-header-text').text('Controller Service Details');
             if (controllerServiceDialog.data('mode') !== config.readOnly) {
                 // update the visibility
                 $('#controller-service-configuration .controller-service-read-only').show();

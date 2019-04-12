@@ -19,9 +19,9 @@ package org.apache.nifi.json;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,35 +30,38 @@ import org.apache.nifi.serialization.MalformedRecordException;
 import org.apache.nifi.serialization.RecordReader;
 import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.record.DataType;
+import org.apache.nifi.serialization.record.MapRecord;
 import org.apache.nifi.serialization.record.Record;
-import org.apache.nifi.serialization.record.RecordField;
 import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.RecordSchema;
+import org.apache.nifi.serialization.record.type.ArrayDataType;
+import org.apache.nifi.serialization.record.type.RecordDataType;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonToken;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.node.ArrayNode;
 
 
 public abstract class AbstractJsonRowRecordReader implements RecordReader {
     private final ComponentLog logger;
     private final JsonParser jsonParser;
-    private final JsonFactory jsonFactory;
     private final boolean array;
     private final JsonNode firstJsonNode;
 
     private boolean firstObjectConsumed = false;
 
+    private static final JsonFactory jsonFactory = new JsonFactory();
+    private static final ObjectMapper codec = new ObjectMapper();
 
     public AbstractJsonRowRecordReader(final InputStream in, final ComponentLog logger) throws IOException, MalformedRecordException {
         this.logger = logger;
 
-        jsonFactory = new JsonFactory();
         try {
             jsonParser = jsonFactory.createJsonParser(in);
-            jsonParser.setCodec(new ObjectMapper());
+            jsonParser.setCodec(codec);
 
             JsonToken token = jsonParser.nextToken();
             if (token == JsonToken.START_ARRAY) {
@@ -78,8 +81,9 @@ public abstract class AbstractJsonRowRecordReader implements RecordReader {
         }
     }
 
+
     @Override
-    public Record nextRecord() throws IOException, MalformedRecordException {
+    public Record nextRecord(final boolean coerceTypes, final boolean dropUnknownFields) throws IOException, MalformedRecordException {
         if (firstObjectConsumed && !array) {
             return null;
         }
@@ -87,7 +91,7 @@ public abstract class AbstractJsonRowRecordReader implements RecordReader {
         final JsonNode nextNode = getNextJsonNode();
         final RecordSchema schema = getSchema();
         try {
-            return convertJsonNodeToRecord(nextNode, schema);
+            return convertJsonNodeToRecord(nextNode, schema, coerceTypes, dropUnknownFields);
         } catch (final MalformedRecordException mre) {
             throw mre;
         } catch (final IOException ioe) {
@@ -98,57 +102,12 @@ public abstract class AbstractJsonRowRecordReader implements RecordReader {
         }
     }
 
-    protected DataType determineFieldType(final JsonNode node) {
-        if (node.isDouble()) {
-            return RecordFieldType.DOUBLE.getDataType();
-        }
-        if (node.isBoolean()) {
-            return RecordFieldType.BOOLEAN.getDataType();
-        }
-        if (node.isFloatingPointNumber()) {
-            return RecordFieldType.FLOAT.getDataType();
-        }
-        if (node.isBigInteger()) {
-            return RecordFieldType.BIGINT.getDataType();
-        }
-        if (node.isBigDecimal()) {
-            return RecordFieldType.DOUBLE.getDataType();
-        }
-        if (node.isLong()) {
-            return RecordFieldType.LONG.getDataType();
-        }
-        if (node.isInt()) {
-            return RecordFieldType.INT.getDataType();
-        }
-        if (node.isTextual()) {
-            return RecordFieldType.STRING.getDataType();
-        }
-        if (node.isArray()) {
-            return RecordFieldType.ARRAY.getDataType();
-        }
-
-        final RecordSchema childSchema = determineSchema(node);
-        return RecordFieldType.RECORD.getRecordDataType(childSchema);
-    }
-
-    protected RecordSchema determineSchema(final JsonNode jsonNode) {
-        final List<RecordField> recordFields = new ArrayList<>();
-
-        final Iterator<Map.Entry<String, JsonNode>> itr = jsonNode.getFields();
-        while (itr.hasNext()) {
-            final Map.Entry<String, JsonNode> entry = itr.next();
-            final String elementName = entry.getKey();
-            final JsonNode node = entry.getValue();
-
-            DataType dataType = determineFieldType(node);
-            recordFields.add(new RecordField(elementName, dataType));
-        }
-
-        return new SimpleRecordSchema(recordFields);
-    }
-
     protected Object getRawNodeValue(final JsonNode fieldNode) throws IOException {
-        if (fieldNode == null || !fieldNode.isValueNode()) {
+        return getRawNodeValue(fieldNode, null);
+    }
+
+    protected Object getRawNodeValue(final JsonNode fieldNode, final DataType dataType) throws IOException {
+        if (fieldNode == null || fieldNode.isNull()) {
             return null;
         }
 
@@ -166,6 +125,53 @@ public abstract class AbstractJsonRowRecordReader implements RecordReader {
 
         if (fieldNode.isTextual()) {
             return fieldNode.getTextValue();
+        }
+
+        if (fieldNode.isArray()) {
+            final ArrayNode arrayNode = (ArrayNode) fieldNode;
+            final int numElements = arrayNode.size();
+            final Object[] arrayElements = new Object[numElements];
+            int count = 0;
+
+            final DataType elementDataType;
+            if (dataType != null && dataType.getFieldType() == RecordFieldType.ARRAY) {
+                final ArrayDataType arrayDataType = (ArrayDataType) dataType;
+                elementDataType = arrayDataType.getElementType();
+            } else {
+                elementDataType = null;
+            }
+
+            for (final JsonNode node : arrayNode) {
+                final Object value = getRawNodeValue(node, elementDataType);
+                arrayElements[count++] = value;
+            }
+
+            return arrayElements;
+        }
+
+        if (fieldNode.isObject()) {
+            RecordSchema childSchema;
+            if (dataType != null && RecordFieldType.RECORD == dataType.getFieldType()) {
+                final RecordDataType recordDataType = (RecordDataType) dataType;
+                childSchema = recordDataType.getChildSchema();
+            } else {
+                childSchema = null;
+            }
+
+            if (childSchema == null) {
+                childSchema = new SimpleRecordSchema(Collections.emptyList());
+            }
+
+            final Iterator<String> fieldNames = fieldNode.getFieldNames();
+            final Map<String, Object> childValues = new HashMap<>();
+            while (fieldNames.hasNext()) {
+                final String childFieldName = fieldNames.next();
+                final Object childValue = getRawNodeValue(fieldNode.get(childFieldName), dataType);
+                childValues.put(childFieldName, childValue);
+            }
+
+            final MapRecord record = new MapRecord(childSchema, childValues);
+            return record;
         }
 
         return null;
@@ -216,5 +222,5 @@ public abstract class AbstractJsonRowRecordReader implements RecordReader {
         return Optional.ofNullable(firstJsonNode);
     }
 
-    protected abstract Record convertJsonNodeToRecord(final JsonNode nextNode, final RecordSchema schema) throws IOException, MalformedRecordException;
+    protected abstract Record convertJsonNodeToRecord(JsonNode nextNode, RecordSchema schema, boolean coerceTypes, boolean dropUnknownFields) throws IOException, MalformedRecordException;
 }

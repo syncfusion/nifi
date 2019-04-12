@@ -239,6 +239,25 @@
         },
 
         /**
+         * Queries for bulletins for the specified components.
+         *
+         * @param {array} componentIds
+         * @returns {deferred}
+         */
+        queryBulletins: function (componentIds) {
+            var ids = componentIds.join('|');
+
+            return $.ajax({
+                type: 'GET',
+                url: '../nifi-api/flow/bulletin-board',
+                data: {
+                    sourceId: ids
+                },
+                dataType: 'json'
+            }).fail(nfErrorHandler.handleAjaxError);
+        },
+
+        /**
          * Shows the specified component in the specified group.
          *
          * @param {string} groupId       The id of the group
@@ -282,6 +301,8 @@
                         });
                     }
                 });
+
+                return refreshGraph;
             }
         },
 
@@ -301,20 +322,36 @@
 
             // Feature detection and browser support for URLSearchParams
             if ('URLSearchParams' in window) {
+                // get the `urlSearchParams` from the URL
                 var urlSearchParams = new URL(window.location).searchParams;
+                // if the `urlSearchParams` are `undefined` then the browser does not support
+                // the URL object's `.searchParams` property
+                if (!nf.Common.isDefinedAndNotNull(urlSearchParams)) {
+                    // attempt to get the `urlSearchParams` using the URLSearchParams constructor and
+                    // the URL object's `.search` property
+                    urlSearchParams = new URLSearchParams(new URL(window.location).search);
+                }
+
                 var groupId = nfCanvasUtils.getGroupId();
-                var componentIds = [];
 
-                if (urlSearchParams.get('processGroupId')) {
-                    groupId = urlSearchParams.get('processGroupId');
-                }
-                if (urlSearchParams.get('componentIds')) {
-                    componentIds = urlSearchParams.get('componentIds').split(',');
-                }
+                // if the `urlSearchParams` are still `undefined` then the browser does not support
+                // the URL object's `.search` property. In this case we cannot support deep links.
+                if (nf.Common.isDefinedAndNotNull(urlSearchParams)) {
+                    var componentIds = [];
 
-                // load the graph but do not update the browser history
-                if (componentIds.length >= 1) {
-                    return nfCanvasUtils.showComponents(groupId, componentIds, forceCanvasLoad);
+                    if (urlSearchParams.get('processGroupId')) {
+                        groupId = urlSearchParams.get('processGroupId');
+                    }
+                    if (urlSearchParams.get('componentIds')) {
+                        componentIds = urlSearchParams.get('componentIds').split(',');
+                    }
+
+                    // load the graph but do not update the browser history
+                    if (componentIds.length >= 1) {
+                        return nfCanvasUtils.showComponents(groupId, componentIds, forceCanvasLoad);
+                    } else {
+                        return nfCanvasUtils.getComponentByType('ProcessGroup').enterGroup(groupId);
+                    }
                 } else {
                     return nfCanvasUtils.getComponentByType('ProcessGroup').enterGroup(groupId);
                 }
@@ -406,35 +443,44 @@
                 });
 
                 // get all URL parameters
-                var params = new URL(window.location).searchParams;
-                params.set('processGroupId', groupId);
-                params.set('componentIds', selectedComponentIds.sort());
-
-                // create object whose keys are the parameter name and the values are the parameter values
-                var paramsObject = {};
-                params.forEach(function (v, k) {
-                    paramsObject[k] = v;
-                });
-
                 var url = new URL(window.location);
-                var newUrl = url.origin + url.pathname;
 
-                if (nfCommon.isDefinedAndNotNull(nfCanvasUtils.getParentGroupId()) || selectedComponentIds.length > 0) {
-                    if (!nfCommon.isDefinedAndNotNull(nfCanvasUtils.getParentGroupId())) {
-                        // we are in the root group so set processGroupId param value to 'root' alias
-                        paramsObject['processGroupId'] = 'root';
-                    }
-
-                    if ((url.origin + url.pathname + '?' + $.param(paramsObject)).length <= nfCanvasUtils.MAX_URL_LENGTH) {
-                        newUrl = url.origin + url.pathname + '?' + $.param(paramsObject);
-                    } else if (nfCommon.isDefinedAndNotNull(nfCanvasUtils.getParentGroupId())) {
-                        // silently remove all component ids
-                        paramsObject['componentIds'] = '';
-                        newUrl = url.origin + url.pathname + '?' + $.param(paramsObject);
-                    }
+                // get the `params` from the URL
+                var params = new URL(window.location).searchParams;
+                // if the `params` are undefined then the browser does not support
+                // the URL object's `.searchParams` property
+                if (!nf.Common.isDefinedAndNotNull(params)) {
+                    // attempt to get the `params` using the URLSearchParams constructor and
+                    // the URL object's `.search` property
+                    params = new URLSearchParams(url.search);
                 }
 
-                window.history.replaceState({'previous_url': url.href}, window.document.title, newUrl);
+                // if the `params` are still `undefined` then the browser does not support
+                // the URL object's `.search` property. In this case we cannot support deep links.
+                if (nf.Common.isDefinedAndNotNull(params)) {
+                    var params = new URLSearchParams(url.search);
+                    params.set('processGroupId', groupId);
+                    params.set('componentIds', selectedComponentIds.sort());
+
+                    var newUrl = url.origin + url.pathname;
+
+                    if (nfCommon.isDefinedAndNotNull(nfCanvasUtils.getParentGroupId()) || selectedComponentIds.length > 0) {
+                        if (!nfCommon.isDefinedAndNotNull(nfCanvasUtils.getParentGroupId())) {
+                            // we are in the root group so set processGroupId param value to 'root' alias
+                            params.set('processGroupId', 'root');
+                        }
+
+                        if ((url.origin + url.pathname + '?' + params.toString()).length <= nfCanvasUtils.MAX_URL_LENGTH) {
+                            newUrl = url.origin + url.pathname + '?' + params.toString();
+                        } else if (nfCommon.isDefinedAndNotNull(nfCanvasUtils.getParentGroupId())) {
+                            // silently remove all component ids
+                            params.set('componentIds', '');
+                            newUrl = url.origin + url.pathname + '?' + params.toString();
+                        }
+                    }
+
+                    window.history.replaceState({'previous_url': url.href}, window.document.title, newUrl);
+                }
             }
         },
 
@@ -529,6 +575,7 @@
          * @param {string} text
          */
         ellipsis: function (selection, text) {
+            text = text.trim();
             var width = parseInt(selection.attr('width'), 10);
             var node = selection.node();
 
@@ -1700,10 +1747,24 @@
         },
 
         /**
+         * Returns whether the authorizer is managed.
+         */
+        isManagedAuthorizer: function () {
+            return nfCanvas.isManagedAuthorizer();
+        },
+
+        /**
          * Returns whether the authorizer is configurable.
          */
         isConfigurableAuthorizer: function () {
             return nfCanvas.isConfigurableAuthorizer();
+        },
+
+        /**
+         * Returns whether the authorizer support configurable users and groups.
+         */
+        isConfigurableUsersAndGroups: function () {
+            return nfCanvas.isConfigurableUsersAndGroups();
         },
 
         /**

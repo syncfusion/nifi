@@ -38,11 +38,6 @@ import org.junit.Test;
 
 public class TestMockProcessSession {
 
-    @Test(expected = AssertionError.class)
-    public void testPenalizeFlowFileFromProcessor() {
-        TestRunners.newTestRunner(PoorlyBehavedProcessor.class).run();
-    }
-
     @Test
     public void testReadWithoutCloseThrowsExceptionOnCommit() throws IOException {
         final Processor processor = new PoorlyBehavedProcessor();
@@ -83,6 +78,15 @@ public class TestMockProcessSession {
 
         }
 
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRejectTransferNewlyCreatedFileToSelf() {
+        final Processor processor = new PoorlyBehavedProcessor();
+        final MockProcessSession session = new MockProcessSession(new SharedSessionState(processor, new AtomicLong(0L)), processor);
+        final FlowFile ff1 = session.createFlowFile("hello, world".getBytes());
+        // this should throw an exception because we shouldn't allow a newly created flowfile to get routed back to self
+        session.transfer(ff1);
     }
 
     protected static class PoorlyBehavedProcessor extends AbstractProcessor {

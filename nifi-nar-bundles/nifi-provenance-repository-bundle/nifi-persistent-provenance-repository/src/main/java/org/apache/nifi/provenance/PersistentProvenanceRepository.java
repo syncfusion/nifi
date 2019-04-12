@@ -16,50 +16,6 @@
  */
 package org.apache.nifi.provenance;
 
-import java.io.EOFException;
-import java.io.File;
-import java.io.FileFilter;
-import java.io.FileNotFoundException;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexNotFoundException;
@@ -112,6 +68,7 @@ import org.apache.nifi.util.FormatUtils;
 import org.apache.nifi.util.NiFiProperties;
 import org.apache.nifi.util.RingBuffer;
 import org.apache.nifi.util.RingBuffer.ForEachEvaluator;
+import org.apache.nifi.util.file.FileUtils;
 import org.apache.nifi.util.StopWatch;
 import org.apache.nifi.util.Tuple;
 import org.apache.nifi.util.timebuffer.CountSizeEntityAccess;
@@ -122,6 +79,50 @@ import org.apache.nifi.util.timebuffer.TimestampedLong;
 import org.apache.nifi.web.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.FileNotFoundException;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class PersistentProvenanceRepository implements ProvenanceRepository {
 
@@ -519,6 +520,40 @@ public class PersistentProvenanceRepository implements ProvenanceRepository {
 
     public RepositoryConfiguration getConfiguration() {
         return configuration;
+    }
+
+    @Override
+    public Set<String> getContainerNames() {
+        return new HashSet<>(configuration.getStorageDirectories().keySet());
+    }
+
+    @Override
+    public long getContainerCapacity(final String containerName) throws IOException {
+        Map<String, File> map = configuration.getStorageDirectories();
+
+        File container = map.get(containerName);
+        if(container != null) {
+            long capacity = FileUtils.getContainerCapacity(container.toPath());
+            if(capacity==0) {
+                throw new IOException("System returned total space of the partition for " + containerName + " is zero byte. "
+                        + "Nifi can not create a zero sized provenance repository.");
+            }
+            return capacity;
+        } else {
+            throw new IllegalArgumentException("There is no defined container with name " + containerName);
+        }
+    }
+
+    @Override
+    public long getContainerUsableSpace(String containerName) throws IOException {
+        Map<String, File> map = configuration.getStorageDirectories();
+
+        File container = map.get(containerName);
+        if(container != null) {
+            return FileUtils.getContainerUsableSpace(container.toPath());
+        } else {
+            throw new IllegalArgumentException("There is no defined container with name " + containerName);
+        }
     }
 
     private void recover() throws IOException {
@@ -1923,11 +1958,7 @@ public class PersistentProvenanceRepository implements ProvenanceRepository {
 
     @Override
     public List<SearchableField> getSearchableFields() {
-        final List<SearchableField> searchableFields = new ArrayList<>(configuration.getSearchableFields());
-        // we exclude the Event Time because it is always searchable and is a bit special in its handling
-        // because it dictates in some cases which index files we look at
-        searchableFields.remove(SearchableFields.EventTime);
-        return searchableFields;
+        return new ArrayList<>(configuration.getSearchableFields());
     }
 
     @Override

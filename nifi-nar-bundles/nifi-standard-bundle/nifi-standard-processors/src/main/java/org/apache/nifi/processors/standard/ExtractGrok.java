@@ -21,6 +21,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.thekraken.grok.api.Grok;
 import io.thekraken.grok.api.Match;
 import io.thekraken.grok.api.exception.GrokException;
+import org.apache.nifi.annotation.behavior.EventDriven;
+import org.apache.nifi.annotation.behavior.SideEffectFree;
+import org.apache.nifi.annotation.behavior.SupportsBatching;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -61,7 +64,9 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-
+@EventDriven
+@SupportsBatching
+@SideEffectFree
 @Tags({"grok", "log", "text", "parse", "delimit", "extract"})
 @CapabilityDescription("Evaluates one or more Grok Expressions against the content of a FlowFile, " +
     "adding the results as attributes or replacing the content of the FlowFile with a JSON " +
@@ -255,19 +260,12 @@ public class ExtractGrok extends AbstractProcessor {
                 Grok grok = new Grok();
                 try {
                     grok.compile(input);
-                } catch (GrokException e) {
+                } catch (GrokException | java.util.regex.PatternSyntaxException e) {
                     return new ValidationResult.Builder()
                             .subject(subject)
                             .input(input)
                             .valid(false)
-                            .explanation("Not a valid Grok Expression")
-                            .build();
-                } catch (java.util.regex.PatternSyntaxException e) {
-                    return new ValidationResult.Builder()
-                            .subject(subject)
-                            .input(input)
-                            .valid(false)
-                            .explanation("Not a valid Grok Expression")
+                            .explanation("Not a valid Grok Expression - " + e.getMessage())
                             .build();
                 }
 

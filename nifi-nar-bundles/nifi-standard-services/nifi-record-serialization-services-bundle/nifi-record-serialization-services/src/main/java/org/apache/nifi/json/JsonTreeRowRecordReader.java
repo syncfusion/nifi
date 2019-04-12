@@ -19,17 +19,27 @@ package org.apache.nifi.json;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.serialization.MalformedRecordException;
+import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.MapRecord;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordField;
+import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.RecordSchema;
+import org.apache.nifi.serialization.record.SerializedForm;
 import org.apache.nifi.serialization.record.type.ArrayDataType;
+import org.apache.nifi.serialization.record.type.MapDataType;
 import org.apache.nifi.serialization.record.type.RecordDataType;
 import org.apache.nifi.serialization.record.util.DataTypeUtils;
 import org.codehaus.jackson.JsonNode;
@@ -38,85 +48,118 @@ import org.codehaus.jackson.node.ArrayNode;
 
 public class JsonTreeRowRecordReader extends AbstractJsonRowRecordReader {
     private final RecordSchema schema;
-    private final String dateFormat;
-    private final String timeFormat;
-    private final String timestampFormat;
+
+    private final Supplier<DateFormat> LAZY_DATE_FORMAT;
+    private final Supplier<DateFormat> LAZY_TIME_FORMAT;
+    private final Supplier<DateFormat> LAZY_TIMESTAMP_FORMAT;
+
 
     public JsonTreeRowRecordReader(final InputStream in, final ComponentLog logger, final RecordSchema schema,
         final String dateFormat, final String timeFormat, final String timestampFormat) throws IOException, MalformedRecordException {
         super(in, logger);
         this.schema = schema;
 
-        this.dateFormat = dateFormat;
-        this.timeFormat = timeFormat;
-        this.timestampFormat = timestampFormat;
+        final DateFormat df = dateFormat == null ? null : DataTypeUtils.getDateFormat(dateFormat);
+        final DateFormat tf = timeFormat == null ? null : DataTypeUtils.getDateFormat(timeFormat);
+        final DateFormat tsf = timestampFormat == null ? null : DataTypeUtils.getDateFormat(timestampFormat);
+
+        LAZY_DATE_FORMAT = () -> df;
+        LAZY_TIME_FORMAT = () -> tf;
+        LAZY_TIMESTAMP_FORMAT = () -> tsf;
     }
 
 
     @Override
-    protected Record convertJsonNodeToRecord(final JsonNode jsonNode, final RecordSchema schema) throws IOException, MalformedRecordException {
+    protected Record convertJsonNodeToRecord(final JsonNode jsonNode, final RecordSchema schema, final boolean coerceTypes, final boolean dropUnknownFields)
+        throws IOException, MalformedRecordException {
+        return convertJsonNodeToRecord(jsonNode, schema, coerceTypes, dropUnknownFields, null);
+    }
+
+    private Record convertJsonNodeToRecord(final JsonNode jsonNode, final RecordSchema schema, final boolean coerceTypes, final boolean dropUnknown, final String fieldNamePrefix)
+        throws IOException, MalformedRecordException {
         if (jsonNode == null) {
             return null;
         }
 
-        final Map<String, Object> values = new HashMap<>(schema.getFieldCount());
-        for (int i = 0; i < schema.getFieldCount(); i++) {
-            final RecordField field = schema.getField(i);
-            final String fieldName = field.getFieldName();
-            final JsonNode fieldNode = jsonNode.get(fieldName);
+        return convertJsonNodeToRecord(jsonNode, schema, fieldNamePrefix, coerceTypes, dropUnknown);
+    }
 
-            final DataType desiredType = field.getDataType();
-            final Object value = convertField(fieldNode, fieldName, desiredType);
+
+    private Record convertJsonNodeToRecord(final JsonNode jsonNode, final RecordSchema schema, final String fieldNamePrefix,
+            final boolean coerceTypes, final boolean dropUnknown) throws IOException, MalformedRecordException {
+
+        final Map<String, Object> values = new LinkedHashMap<>();
+        final Iterator<String> fieldNames = jsonNode.getFieldNames();
+        while (fieldNames.hasNext()) {
+            final String fieldName = fieldNames.next();
+            final JsonNode childNode = jsonNode.get(fieldName);
+
+            final RecordField recordField = schema.getField(fieldName).orElse(null);
+            if (recordField == null && dropUnknown) {
+                continue;
+            }
+
+            final Object value;
+            if (coerceTypes && recordField != null) {
+                final DataType desiredType = recordField.getDataType();
+                final String fullFieldName = fieldNamePrefix == null ? fieldName : fieldNamePrefix + fieldName;
+                value = convertField(childNode, fullFieldName, desiredType, dropUnknown);
+            } else {
+                value = getRawNodeValue(childNode, recordField == null ? null : recordField.getDataType());
+            }
+
             values.put(fieldName, value);
         }
 
-        return new MapRecord(schema, values);
+        final Supplier<String> supplier = () -> jsonNode.toString();
+        return new MapRecord(schema, values, SerializedForm.of(supplier, "application/json"), false, dropUnknown);
     }
 
-    protected Object convertField(final JsonNode fieldNode, final String fieldName, final DataType desiredType) throws IOException, MalformedRecordException {
+
+    protected Object convertField(final JsonNode fieldNode, final String fieldName, final DataType desiredType, final boolean dropUnknown) throws IOException, MalformedRecordException {
         if (fieldNode == null || fieldNode.isNull()) {
             return null;
         }
 
         switch (desiredType.getFieldType()) {
             case BOOLEAN:
-                return DataTypeUtils.toBoolean(getRawNodeValue(fieldNode));
             case BYTE:
-                return DataTypeUtils.toByte(getRawNodeValue(fieldNode));
             case CHAR:
-                return DataTypeUtils.toCharacter(getRawNodeValue(fieldNode));
             case DOUBLE:
-                return DataTypeUtils.toDouble(getRawNodeValue(fieldNode));
             case FLOAT:
-                return DataTypeUtils.toFloat(getRawNodeValue(fieldNode));
             case INT:
-                return DataTypeUtils.toInteger(getRawNodeValue(fieldNode));
             case LONG:
-                return DataTypeUtils.toLong(getRawNodeValue(fieldNode));
             case SHORT:
-                return DataTypeUtils.toShort(getRawNodeValue(fieldNode));
             case STRING:
-                return DataTypeUtils.toString(getRawNodeValue(fieldNode), dateFormat, timeFormat, timestampFormat);
             case DATE:
-                return DataTypeUtils.toDate(getRawNodeValue(fieldNode), dateFormat);
             case TIME:
-                return DataTypeUtils.toTime(getRawNodeValue(fieldNode), timeFormat);
-            case TIMESTAMP:
-                return DataTypeUtils.toTimestamp(getRawNodeValue(fieldNode), timestampFormat);
+            case TIMESTAMP: {
+                final Object rawValue = getRawNodeValue(fieldNode);
+                final Object converted = DataTypeUtils.convertType(rawValue, desiredType, LAZY_DATE_FORMAT, LAZY_TIME_FORMAT, LAZY_TIMESTAMP_FORMAT, fieldName);
+                return converted;
+            }
+            case MAP: {
+                final DataType valueType = ((MapDataType) desiredType).getValueType();
+
+                final Map<String, Object> map = new HashMap<>();
+                final Iterator<String> fieldNameItr = fieldNode.getFieldNames();
+                while (fieldNameItr.hasNext()) {
+                    final String childName = fieldNameItr.next();
+                    final JsonNode childNode = fieldNode.get(childName);
+                    final Object childValue = convertField(childNode, fieldName, valueType, dropUnknown);
+                    map.put(childName, childValue);
+                }
+
+                return map;
+            }
             case ARRAY: {
                 final ArrayNode arrayNode = (ArrayNode) fieldNode;
                 final int numElements = arrayNode.size();
                 final Object[] arrayElements = new Object[numElements];
                 int count = 0;
                 for (final JsonNode node : arrayNode) {
-                    final DataType elementType;
-                    if (desiredType instanceof ArrayDataType) {
-                        elementType = ((ArrayDataType) desiredType).getElementType();
-                    } else {
-                        elementType = determineFieldType(node);
-                    }
-
-                    final Object converted = convertField(node, fieldName, elementType);
+                    final DataType elementType = ((ArrayDataType) desiredType).getElementType();
+                    final Object converted = convertField(node, fieldName, elementType, dropUnknown);
                     arrayElements[count++] = converted;
                 }
 
@@ -124,17 +167,30 @@ public class JsonTreeRowRecordReader extends AbstractJsonRowRecordReader {
             }
             case RECORD: {
                 if (fieldNode.isObject()) {
-                    final RecordSchema childSchema;
+                    RecordSchema childSchema;
                     if (desiredType instanceof RecordDataType) {
                         childSchema = ((RecordDataType) desiredType).getChildSchema();
                     } else {
                         return null;
                     }
 
-                    return convertJsonNodeToRecord(fieldNode, childSchema);
+                    if (childSchema == null) {
+                        final List<RecordField> fields = new ArrayList<>();
+                        final Iterator<String> fieldNameItr = fieldNode.getFieldNames();
+                        while (fieldNameItr.hasNext()) {
+                            fields.add(new RecordField(fieldNameItr.next(), RecordFieldType.STRING.getDataType()));
+                        }
+
+                        childSchema = new SimpleRecordSchema(fields);
+                    }
+
+                    return convertJsonNodeToRecord(fieldNode, childSchema, fieldName + ".", true, dropUnknown);
                 } else {
                     return null;
                 }
+            }
+            case CHOICE: {
+                return DataTypeUtils.convertType(getRawNodeValue(fieldNode), desiredType, fieldName);
             }
         }
 

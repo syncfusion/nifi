@@ -26,6 +26,7 @@ import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
@@ -166,8 +167,8 @@ public class HBase_1_1_2_ClientService extends AbstractControllerService impleme
             }
 
             final Configuration hbaseConfig = resources.getConfiguration();
-            final String principal = validationContext.getProperty(kerberosProperties.getKerberosPrincipal()).getValue();
-            final String keytab = validationContext.getProperty(kerberosProperties.getKerberosKeytab()).getValue();
+            final String principal = validationContext.getProperty(kerberosProperties.getKerberosPrincipal()).evaluateAttributeExpressions().getValue();
+            final String keytab = validationContext.getProperty(kerberosProperties.getKerberosKeytab()).evaluateAttributeExpressions().getValue();
 
             problems.addAll(KerberosProperties.validatePrincipalAndKeytab(
                     this.getClass().getSimpleName(), hbaseConfig, principal, keytab, getLogger()));
@@ -222,8 +223,8 @@ public class HBase_1_1_2_ClientService extends AbstractControllerService impleme
         }
 
         if (SecurityUtil.isSecurityEnabled(hbaseConfig)) {
-            final String principal = context.getProperty(kerberosProperties.getKerberosPrincipal()).getValue();
-            final String keyTab = context.getProperty(kerberosProperties.getKerberosKeytab()).getValue();
+            final String principal = context.getProperty(kerberosProperties.getKerberosPrincipal()).evaluateAttributeExpressions().getValue();
+            final String keyTab = context.getProperty(kerberosProperties.getKerberosKeytab()).evaluateAttributeExpressions().getValue();
 
             getLogger().info("HBase Security Enabled, logging in as principal {} with keytab {}", new Object[] {principal, keyTab});
             ugi = SecurityUtil.loginKerberos(hbaseConfig, principal, keyTab);
@@ -283,10 +284,18 @@ public class HBase_1_1_2_ClientService extends AbstractControllerService impleme
                 }
 
                 for (final PutColumn column : putFlowFile.getColumns()) {
-                    put.addColumn(
-                            column.getColumnFamily(),
-                            column.getColumnQualifier(),
-                            column.getBuffer());
+                    if (column.getTimestamp() != null) {
+                        put.addColumn(
+                                column.getColumnFamily(),
+                                column.getColumnQualifier(),
+                                column.getTimestamp(),
+                                column.getBuffer());
+                    } else {
+                        put.addColumn(
+                                column.getColumnFamily(),
+                                column.getColumnQualifier(),
+                                column.getBuffer());
+                    }
                 }
             }
 
@@ -305,6 +314,26 @@ public class HBase_1_1_2_ClientService extends AbstractControllerService impleme
                         column.getBuffer());
             }
             table.put(put);
+        }
+    }
+
+    @Override
+    public boolean checkAndPut(final String tableName, final byte[] rowId, final byte[] family, final byte[] qualifier, final byte[] value, final PutColumn column) throws IOException {
+        try (final Table table = connection.getTable(TableName.valueOf(tableName))) {
+            Put put = new Put(rowId);
+            put.addColumn(
+                column.getColumnFamily(),
+                column.getColumnQualifier(),
+                column.getBuffer());
+            return table.checkAndPut(rowId, family, qualifier, value, put);
+        }
+    }
+
+    @Override
+    public void delete(final String tableName, final byte[] rowId) throws IOException {
+        try (final Table table = connection.getTable(TableName.valueOf(tableName))) {
+            Delete delete = new Delete(rowId);
+            table.delete(delete);
         }
     }
 
@@ -466,6 +495,16 @@ public class HBase_1_1_2_ClientService extends AbstractControllerService impleme
     @Override
     public byte[] toBytes(boolean b) {
         return Bytes.toBytes(b);
+    }
+
+    @Override
+    public byte[] toBytes(float f) {
+        return Bytes.toBytes(f);
+    }
+
+    @Override
+    public byte[] toBytes(int i) {
+        return Bytes.toBytes(i);
     }
 
     @Override

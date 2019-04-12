@@ -17,72 +17,57 @@
 
 package org.apache.nifi.text;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.nifi.components.PropertyValue;
-import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.serialization.AbstractRecordSetWriter;
 import org.apache.nifi.serialization.RecordSetWriter;
-import org.apache.nifi.serialization.WriteResult;
 import org.apache.nifi.serialization.record.Record;
+import org.apache.nifi.serialization.record.RecordField;
 import org.apache.nifi.serialization.record.RecordSchema;
-import org.apache.nifi.serialization.record.RecordSet;
 
-public class FreeFormTextWriter implements RecordSetWriter {
+public class FreeFormTextWriter extends AbstractRecordSetWriter implements RecordSetWriter {
     private static final byte NEW_LINE = (byte) '\n';
     private final PropertyValue propertyValue;
     private final Charset charset;
 
-    public FreeFormTextWriter(final PropertyValue textPropertyValue, final Charset characterSet) {
-        propertyValue = textPropertyValue;
-        charset = characterSet;
+    public FreeFormTextWriter(final PropertyValue textPropertyValue, final Charset characterSet, final OutputStream out) {
+        super(new BufferedOutputStream(out));
+        this.propertyValue = textPropertyValue;
+        this.charset = characterSet;
     }
 
-    @Override
-    public WriteResult write(final RecordSet recordSet, final OutputStream out) throws IOException {
-        int count = 0;
-
-        try {
-            final RecordSchema schema = recordSet.getSchema();
-            final String[] colNames = getColumnNames(schema);
-
-            Record record;
-            while ((record = recordSet.next()) != null) {
-                count++;
-                write(record, out, colNames);
+    private List<String> getColumnNames(final RecordSchema schema) {
+        final List<String> columnNames = new ArrayList<>();
+        for (final RecordField field : schema.getFields()) {
+            columnNames.add(field.getFieldName());
+            for (final String alias : field.getAliases()) {
+                columnNames.add(alias);
             }
-        } catch (final Exception e) {
-            throw new ProcessException(e);
-        }
-
-        return WriteResult.of(count, Collections.emptyMap());
-    }
-
-    private String[] getColumnNames(final RecordSchema schema) {
-        final int numCols = schema.getFieldCount();
-        final String[] columnNames = new String[numCols];
-        for (int i = 0; i < numCols; i++) {
-            columnNames[i] = schema.getField(i).getFieldName();
         }
 
         return columnNames;
     }
 
     @Override
-    public WriteResult write(final Record record, final OutputStream out) throws IOException {
-        write(record, out, getColumnNames(record.getSchema()));
-        return WriteResult.of(1, Collections.emptyMap());
+    public Map<String, String> writeRecord(final Record record) throws IOException {
+        write(record, getOutputStream(), getColumnNames(record.getSchema()));
+        return Collections.emptyMap();
     }
 
-    private void write(final Record record, final OutputStream out, final String[] columnNames) throws IOException {
-        final int numCols = columnNames.length;
+    private void write(final Record record, final OutputStream out, final List<String> columnNames) throws IOException {
+        final int numCols = columnNames.size();
         final Map<String, String> values = new HashMap<>(numCols);
         for (int i = 0; i < numCols; i++) {
-            final String columnName = columnNames[i];
+            final String columnName = columnNames.get(i);
             final String columnValue = record.getAsString(columnName);
             values.put(columnName, columnValue);
         }

@@ -17,6 +17,7 @@
 
 package org.apache.nifi.text;
 
+import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,22 +27,25 @@ import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
-import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.apache.nifi.schema.access.InheritSchemaFromRecord;
+import org.apache.nifi.schema.access.SchemaAccessStrategy;
+import org.apache.nifi.schemaregistry.services.SchemaRegistry;
 import org.apache.nifi.serialization.RecordSetWriter;
 import org.apache.nifi.serialization.RecordSetWriterFactory;
+import org.apache.nifi.serialization.SchemaRegistryRecordSetWriter;
+import org.apache.nifi.serialization.record.RecordSchema;
 
 @Tags({"text", "freeform", "expression", "language", "el", "record", "recordset", "resultset", "writer", "serialize"})
 @CapabilityDescription("Writes the contents of a RecordSet as free-form text. The configured "
-    + "text is able to make use of the Expression Language to reference each of the columns that are available "
+    + "text is able to make use of the Expression Language to reference each of the fields that are available "
     + "in a Record. Each record in the RecordSet will be separated by a single newline character.")
-public class FreeFormTextRecordSetWriter extends AbstractControllerService implements RecordSetWriterFactory {
+public class FreeFormTextRecordSetWriter extends SchemaRegistryRecordSetWriter implements RecordSetWriterFactory {
     static final PropertyDescriptor TEXT = new PropertyDescriptor.Builder()
         .name("Text")
-        .description("The text to use when writing the results. This property will evaluate the Expression Language using any of the columns available to the Result Set. For example, if the "
-            + "following SQL Query is used: \"SELECT Name, COUNT(*) AS Count\" then the Expression can reference \"Name\" and \"Count\", such as \"${Name:toUpper()} ${Count:minus(1)}\"")
+        .description("The text to use when writing the results. This property will evaluate the Expression Language using any of the fields available in a Record.")
         .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
         .expressionLanguageSupported(true)
         .required(true)
@@ -73,8 +77,13 @@ public class FreeFormTextRecordSetWriter extends AbstractControllerService imple
     }
 
     @Override
-    public RecordSetWriter createWriter(final ComponentLog logger) {
-        return new FreeFormTextWriter(textValue, characterSet);
+    public RecordSetWriter createWriter(final ComponentLog logger, final RecordSchema schema, final OutputStream out) {
+        return new FreeFormTextWriter(textValue, characterSet, out);
+    }
+
+    @Override
+    protected SchemaAccessStrategy getSchemaAccessStrategy(String strategy, SchemaRegistry schemaRegistry, ConfigurationContext context) {
+        return new InheritSchemaFromRecord();
     }
 
 }

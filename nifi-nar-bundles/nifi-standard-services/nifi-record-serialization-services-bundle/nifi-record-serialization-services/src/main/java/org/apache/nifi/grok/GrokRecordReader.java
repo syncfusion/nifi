@@ -21,40 +21,37 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
-import java.util.regex.Matcher;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.time.FastDateFormat;
 import org.apache.nifi.serialization.MalformedRecordException;
 import org.apache.nifi.serialization.RecordReader;
-import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.MapRecord;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordField;
 import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.RecordSchema;
+import org.apache.nifi.serialization.record.util.DataTypeUtils;
 
 import io.thekraken.grok.api.Grok;
-import io.thekraken.grok.api.GrokUtils;
 import io.thekraken.grok.api.Match;
 
 public class GrokRecordReader implements RecordReader {
     private final BufferedReader reader;
     private final Grok grok;
+    private final boolean append;
+    private final RecordSchema schemaFromGrok;
     private RecordSchema schema;
 
     private String nextLine;
 
-    static final String STACK_TRACE_COLUMN_NAME = "STACK_TRACE";
+    static final String STACK_TRACE_COLUMN_NAME = "stackTrace";
+    static final String RAW_MESSAGE_NAME = "_raw";
+
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile(
         "^\\s*(?:(?:    |\\t)+at )|"
             + "(?:(?:    |\\t)+\\[CIRCULAR REFERENCE\\:)|"
@@ -62,21 +59,12 @@ public class GrokRecordReader implements RecordReader {
             + "(?:Suppressed\\: )|"
             + "(?:\\s+... \\d+ (?:more|common frames? omitted)$)");
 
-    private static final FastDateFormat TIME_FORMAT_DATE;
-    private static final FastDateFormat TIME_FORMAT_TIME;
-    private static final FastDateFormat TIME_FORMAT_TIMESTAMP;
-
-    static {
-        final TimeZone gmt = TimeZone.getTimeZone("GMT");
-        TIME_FORMAT_DATE = FastDateFormat.getInstance("yyyy-MM-dd", gmt);
-        TIME_FORMAT_TIME = FastDateFormat.getInstance("HH:mm:ss", gmt);
-        TIME_FORMAT_TIMESTAMP = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss", gmt);
-    }
-
-    public GrokRecordReader(final InputStream in, final Grok grok, final RecordSchema schema) {
+    public GrokRecordReader(final InputStream in, final Grok grok, final RecordSchema schema, final RecordSchema schemaFromGrok, final boolean append) {
         this.reader = new BufferedReader(new InputStreamReader(in));
         this.grok = grok;
         this.schema = schema;
+        this.append = append;
+        this.schemaFromGrok = schemaFromGrok;
     }
 
     @Override
@@ -85,26 +73,27 @@ public class GrokRecordReader implements RecordReader {
     }
 
     @Override
-    public Record nextRecord() throws IOException, MalformedRecordException {
-        final String line = nextLine == null ? reader.readLine() : nextLine;
-        nextLine = null; // ensure that we don't process nextLine again
-        if (line == null) {
-            return null;
-        }
+    public Record nextRecord(final boolean coerceTypes, final boolean dropUnknownFields) throws IOException, MalformedRecordException {
+        Map<String, Object> valueMap = null;
+        StringBuilder raw = new StringBuilder();
 
-        final RecordSchema schema = getSchema();
+        while (valueMap == null || valueMap.isEmpty()) {
+            final String line = nextLine == null ? reader.readLine() : nextLine;
+            raw.append(line);
+            nextLine = null; // ensure that we don't process nextLine again
+            if (line == null) {
+                return null;
+            }
 
-        final Match match = grok.match(line);
-        match.captures();
-        final Map<String, Object> valueMap = match.toMap();
-        if (valueMap.isEmpty()) {   // We were unable to match the pattern so return an empty Object array.
-            return new MapRecord(schema, Collections.emptyMap());
+            final Match match = grok.match(line);
+            match.captures();
+            valueMap = match.toMap();
         }
 
         // Read the next line to see if it matches the pattern (in which case we will simply leave it for
         // the next call to nextRecord()) or we will attach it to the previously read record.
         String stackTrace = null;
-        final StringBuilder toAppend = new StringBuilder();
+        final StringBuilder trailingText = new StringBuilder();
         while ((nextLine = reader.readLine()) != null) {
             final Match nextLineMatch = grok.match(nextLine);
             nextLineMatch.captures();
@@ -114,9 +103,11 @@ public class GrokRecordReader implements RecordReader {
                 // the stack trace ends. Otherwise, append the next line to the last field in the record.
                 if (isStartOfStackTrace(nextLine)) {
                     stackTrace = readStackTrace(nextLine);
+                    raw.append("\n").append(stackTrace);
                     break;
-                } else {
-                    toAppend.append("\n").append(nextLine);
+                } else if (append) {
+                    trailingText.append("\n").append(nextLine);
+                    raw.append("\n").append(nextLine);
                 }
             } else {
                 // The next line matched our pattern.
@@ -124,35 +115,80 @@ public class GrokRecordReader implements RecordReader {
             }
         }
 
-        try {
-            final List<DataType> fieldTypes = schema.getDataTypes();
-            final Map<String, Object> values = new HashMap<>(fieldTypes.size());
+        final Record record = createRecord(valueMap, trailingText, stackTrace, raw.toString(), coerceTypes, dropUnknownFields);
+        return record;
+    }
 
-            for (final String fieldName : schema.getFieldNames()) {
-                final Object value = valueMap.get(fieldName);
-                if (value == null) {
-                    values.put(fieldName, null);
-                    continue;
+    private Record createRecord(final Map<String, Object> valueMap, final StringBuilder trailingText, final String stackTrace, final String raw, final boolean coerceTypes, final boolean dropUnknown) {
+        final Map<String, Object> converted = new HashMap<>();
+        for (final Map.Entry<String, Object> entry : valueMap.entrySet()) {
+            final String fieldName = entry.getKey();
+            final Object rawValue = entry.getValue();
+
+            final Object normalizedValue;
+            if (rawValue instanceof List) {
+                final List<?> list = (List<?>) rawValue;
+                final String[] array = new String[list.size()];
+                for (int i = 0; i < list.size(); i++) {
+                    final Object rawObject = list.get(i);
+                    array[i] = rawObject == null ? null : rawObject.toString();
+                }
+                normalizedValue = array;
+            } else {
+                normalizedValue = rawValue == null ? null : rawValue.toString();
+            }
+
+            final Optional<RecordField> optionalRecordField = schema.getField(fieldName);
+
+            final Object coercedValue;
+            if (coerceTypes && optionalRecordField.isPresent()) {
+                final RecordField field = optionalRecordField.get();
+                final DataType fieldType = field.getDataType();
+                coercedValue = convert(fieldType, normalizedValue, fieldName);
+            } else {
+                coercedValue = normalizedValue;
+            }
+
+            converted.put(fieldName, coercedValue);
+        }
+
+        // If there is any trailing text, determine the last column from the grok schema
+        // and then append the trailing text to it.
+        if (append && trailingText.length() > 0) {
+            String lastPopulatedFieldName = null;
+            final List<RecordField> schemaFields = schemaFromGrok.getFields();
+            for (int i = schemaFields.size() - 1; i >= 0; i--) {
+                final RecordField field = schemaFields.get(i);
+
+                Object value = converted.get(field.getFieldName());
+                if (value != null) {
+                    lastPopulatedFieldName = field.getFieldName();
+                    break;
                 }
 
-                final DataType fieldType = schema.getDataType(fieldName).orElse(null);
-                final Object converted = convert(fieldType, value.toString());
-                values.put(fieldName, converted);
+                for (final String alias : field.getAliases()) {
+                    value = converted.get(alias);
+                    if (value != null) {
+                        lastPopulatedFieldName = alias;
+                        break;
+                    }
+                }
             }
 
-            final String lastFieldBeforeStackTrace = schema.getFieldNames().get(schema.getFieldCount() - 2);
-            if (toAppend.length() > 0) {
-                final Object existingValue = values.get(lastFieldBeforeStackTrace);
-                final String updatedValue = existingValue == null ? toAppend.toString() : existingValue + toAppend.toString();
-                values.put(lastFieldBeforeStackTrace, updatedValue);
+            if (lastPopulatedFieldName != null) {
+                final Object value = converted.get(lastPopulatedFieldName);
+                if (value == null) {
+                    converted.put(lastPopulatedFieldName, trailingText.toString());
+                } else if (value instanceof String) { // if not a String it is a List and we will just drop the trailing text
+                    converted.put(lastPopulatedFieldName, (String) value + trailingText.toString());
+                }
             }
-
-            values.put(STACK_TRACE_COLUMN_NAME, stackTrace);
-
-            return new MapRecord(schema, values);
-        } catch (final Exception e) {
-            throw new MalformedRecordException("Found invalid log record and will skip it. Record: " + line, e);
         }
+
+        converted.put(STACK_TRACE_COLUMN_NAME, stackTrace);
+        converted.put(RAW_MESSAGE_NAME, raw);
+
+        return new MapRecord(schema, converted);
     }
 
 
@@ -205,94 +241,28 @@ public class GrokRecordReader implements RecordReader {
     }
 
 
-    protected Object convert(final DataType fieldType, final String string) {
+    protected Object convert(final DataType fieldType, final Object rawValue, final String fieldName) {
         if (fieldType == null) {
-            return string;
+            return rawValue;
         }
 
-        if (string == null) {
+        if (rawValue == null) {
             return null;
         }
 
         // If string is empty then return an empty string if field type is STRING. If field type is
         // anything else, we can't really convert it so return null
-        if (string.isEmpty() && fieldType.getFieldType() != RecordFieldType.STRING) {
+        final boolean fieldEmpty = rawValue instanceof String && ((String) rawValue).isEmpty();
+        if (fieldEmpty && fieldType.getFieldType() != RecordFieldType.STRING) {
             return null;
         }
 
-        switch (fieldType.getFieldType()) {
-            case BOOLEAN:
-                return Boolean.parseBoolean(string);
-            case BYTE:
-                return Byte.parseByte(string);
-            case SHORT:
-                return Short.parseShort(string);
-            case INT:
-                return Integer.parseInt(string);
-            case LONG:
-                return Long.parseLong(string);
-            case FLOAT:
-                return Float.parseFloat(string);
-            case DOUBLE:
-                return Double.parseDouble(string);
-            case DATE:
-                try {
-                    Date date = TIME_FORMAT_DATE.parse(string);
-                    return new java.sql.Date(date.getTime());
-                } catch (ParseException e) {
-                    return null;
-                }
-            case TIME:
-                try {
-                    Date date = TIME_FORMAT_TIME.parse(string);
-                    return new java.sql.Time(date.getTime());
-                } catch (ParseException e) {
-                    return null;
-                }
-            case TIMESTAMP:
-                try {
-                    Date date = TIME_FORMAT_TIMESTAMP.parse(string);
-                    return new java.sql.Timestamp(date.getTime());
-                } catch (ParseException e) {
-                    return null;
-                }
-            case STRING:
-            default:
-                return string;
-        }
+        return DataTypeUtils.convertType(rawValue, fieldType, fieldName);
     }
 
 
     @Override
     public RecordSchema getSchema() {
-        if (schema != null) {
-            return schema;
-        }
-
-        final List<RecordField> fields = new ArrayList<>();
-
-        String grokExpression = grok.getOriginalGrokPattern();
-        while (grokExpression.length() > 0) {
-            final Matcher matcher = GrokUtils.GROK_PATTERN.matcher(grokExpression);
-            if (matcher.find()) {
-                final Map<String, String> namedGroups = GrokUtils.namedGroups(matcher, grokExpression);
-                final String fieldName = namedGroups.get("subname");
-
-                DataType dataType = RecordFieldType.STRING.getDataType();
-                final RecordField recordField = new RecordField(fieldName, dataType);
-                fields.add(recordField);
-
-                if (grokExpression.length() > matcher.end() + 1) {
-                    grokExpression = grokExpression.substring(matcher.end() + 1);
-                } else {
-                    break;
-                }
-            }
-        }
-
-        fields.add(new RecordField(STACK_TRACE_COLUMN_NAME, RecordFieldType.STRING.getDataType()));
-
-        schema = new SimpleRecordSchema(fields);
         return schema;
     }
 

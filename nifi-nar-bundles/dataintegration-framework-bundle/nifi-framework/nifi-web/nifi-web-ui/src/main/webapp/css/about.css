@@ -1,0 +1,57 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+.about-container {
+    position: absolute;
+    min-height: 350px;
+    height: 64.9335%;
+    min-width: 300px ;
+    width: 37.0625%!important;
+    top: 83.5px ;
+    left: 390px;
+    font-size:12px;
+    z-index: 1301;
+}
+
+#nf-about-pic {
+    position: relative;
+    height: 60%;
+    top: 20%;
+}
+
+.about-img-container {
+    height: 40%;
+    /*background: url(../images/AboutPage_Bg.png);*/
+}
+/*#nf-version {
+     font-weight:500;
+     font-size: 13px;
+     cursor: pointer;
+}*/
+.about-content p {
+/* Modified the default about content design and style*/
+    font-family: "Segoe UI";
+    text-align: justify;
+    font-size: 13px;
+    line-height: 16px;
+    padding-top: 7px;
+ }
+
+.about-content .link {
+    cursor: pointer;
+    color: #007ed2;
+    font-weight:900;
+}

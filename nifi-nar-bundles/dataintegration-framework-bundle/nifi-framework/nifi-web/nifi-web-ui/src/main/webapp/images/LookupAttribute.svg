@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 21.1.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 width="18px" height="18px" viewBox="0 0 18 18" style="enable-background:new 0 0 18 18;" xml:space="preserve">
+<style type="text/css">
+	.st0{opacity:0.32;fill:#EEF7C9;}
+	.st1{fill:#E1E3E4;}
+	.st2{fill:#B54747;}
+	.st3{fill:none;stroke:#2F80D1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;}
+	.st4{fill:none;stroke:#FFFFFF;stroke-linecap:round;stroke-miterlimit:10;}
+	.st5{fill:none;stroke:#2F80D1;stroke-miterlimit:10;}
+	.st6{fill:none;stroke:#FFFFFF;stroke-miterlimit:10;}
+	.st7{fill:#606060;}
+	.st8{fill:#2F80D1;}
+	.st9{fill:#47B747;}
+	.st10{fill:none;stroke:#606060;stroke-miterlimit:10;}
+	.st11{fill:#FFFFFF;}
+	.st12{fill:none;stroke:#47B747;stroke-miterlimit:10;}
+	.st13{fill:none;stroke:#47B747;stroke-linecap:round;stroke-miterlimit:10;}
+	.st14{fill:none;stroke:#47B747;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;}
+</style>
+<g>
+	<rect x="7" y="2" class="st7" width="4" height="4"/>
+	<rect x="7" y="7" class="st7" width="4" height="4"/>
+	<path class="st8" d="M11,13.3c0.1,1.7,1.6,2.9,3.2,2.8c0.3,0,0.6-0.1,0.9-0.2L17,18l0.8-0.6L16,15.2c0.7-0.6,1.1-1.5,1-2.4
+		c-0.1-1.7-1.6-2.9-3.2-2.8C12.1,10.2,10.9,11.6,11,13.3z M12,13.2c-0.1-1.1,0.7-2.1,1.8-2.1c1.1-0.1,2.1,0.7,2.1,1.8
+		s-0.7,2.1-1.8,2.1C13.1,15.1,12.1,14.3,12,13.2z"/>
+	<polygon class="st7" points="10,17 1,17 1,1 17,1 17,9 18,9 18,0 0,0 0,18 10,18 	"/>
+	<path class="st7" d="M2,2v4h4V2H2z M5,5H3V3h2V5z"/>
+	<path class="st7" d="M2,7v4h4V7H2z M5,10H3V8h2V10z"/>
+</g>
+</svg>

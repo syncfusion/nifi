@@ -31,6 +31,7 @@ import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
+import org.apache.nifi.annotation.lifecycle.OnStopped;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.controller.ConfigurationContext;
@@ -48,7 +49,7 @@ import org.slf4j.LoggerFactory;
 @SeeAlso(classNames = {"org.apache.nifi.distributed.cache.server.map.DistributedMapCacheServer", "org.apache.nifi.ssl.StandardSSLContextService"})
 @CapabilityDescription("Provides the ability to communicate with a DistributedMapCacheServer. This can be used in order to share a Map "
     + "between nodes in a NiFi cluster")
-public class DistributedMapCacheClientService extends AbstractControllerService implements AtomicDistributedMapCacheClient {
+public class DistributedMapCacheClientService extends AbstractControllerService implements AtomicDistributedMapCacheClient<Long> {
 
     private static final Logger logger = LoggerFactory.getLogger(DistributedMapCacheClientService.class);
 
@@ -98,6 +99,11 @@ public class DistributedMapCacheClientService extends AbstractControllerService 
     @OnEnabled
     public void cacheConfig(final ConfigurationContext context) {
         this.configContext = context;
+    }
+
+    @OnStopped
+    public void onStopped() throws IOException {
+        close();
     }
 
     @Override
@@ -231,7 +237,8 @@ public class DistributedMapCacheClientService extends AbstractControllerService 
     }
 
     @Override
-    public <K, V> CacheEntry<K, V> fetch(final K key, final Serializer<K> keySerializer, final Deserializer<V> valueDeserializer) throws IOException {
+    @SuppressWarnings("unchecked")
+    public <K, V> AtomicCacheEntry<K, V, Long> fetch(K key, Serializer<K> keySerializer, Deserializer<V> valueDeserializer) throws IOException {
         return withCommsSession(session -> {
             validateProtocolVersion(session, 2);
 
@@ -251,8 +258,7 @@ public class DistributedMapCacheClientService extends AbstractControllerService 
                 return null;
             }
 
-            final StandardCacheEntry<K, V> standardCacheEntry = new StandardCacheEntry<>(key, valueDeserializer.deserialize(responseBuffer), revision);
-            return standardCacheEntry;
+            return new AtomicCacheEntry(key, valueDeserializer.deserialize(responseBuffer), revision);
         });
     }
 
@@ -263,16 +269,16 @@ public class DistributedMapCacheClientService extends AbstractControllerService 
     }
 
     @Override
-    public <K, V> boolean replace(final K key, final V value, final Serializer<K> keySerializer, final Serializer<V> valueSerializer, final long revision) throws IOException {
+    public <K, V> boolean replace(AtomicCacheEntry<K, V, Long> entry, Serializer<K> keySerializer, Serializer<V> valueSerializer) throws IOException {
         return withCommsSession(session -> {
             validateProtocolVersion(session, 2);
 
             final DataOutputStream dos = new DataOutputStream(session.getOutputStream());
             dos.writeUTF("replace");
 
-            serialize(key, keySerializer, dos);
-            dos.writeLong(revision);
-            serialize(value, valueSerializer, dos);
+            serialize(entry.getKey(), keySerializer, dos);
+            dos.writeLong(entry.getRevision().orElse(0L));
+            serialize(entry.getValue(), valueSerializer, dos);
 
             dos.flush();
 
@@ -292,14 +298,14 @@ public class DistributedMapCacheClientService extends AbstractControllerService 
     public CommsSession createCommsSession(final ConfigurationContext context) throws IOException {
         final String hostname = context.getProperty(HOSTNAME).getValue();
         final int port = context.getProperty(PORT).asInteger();
-        final long timeoutMillis = context.getProperty(COMMUNICATIONS_TIMEOUT).asTimePeriod(TimeUnit.MILLISECONDS);
+        final int timeoutMillis = context.getProperty(COMMUNICATIONS_TIMEOUT).asTimePeriod(TimeUnit.MILLISECONDS).intValue();
         final SSLContextService sslContextService = context.getProperty(SSL_CONTEXT_SERVICE).asControllerService(SSLContextService.class);
 
         final CommsSession commsSession;
         if (sslContextService == null) {
-            commsSession = new StandardCommsSession(hostname, port);
+            commsSession = new StandardCommsSession(hostname, port, timeoutMillis);
         } else {
-            commsSession = new SSLCommsSession(sslContextService.createSSLContext(ClientAuth.REQUIRED), hostname, port);
+            commsSession = new SSLCommsSession(sslContextService.createSSLContext(ClientAuth.REQUIRED), hostname, port, timeoutMillis);
         }
 
         commsSession.setTimeout(timeoutMillis, TimeUnit.MILLISECONDS);

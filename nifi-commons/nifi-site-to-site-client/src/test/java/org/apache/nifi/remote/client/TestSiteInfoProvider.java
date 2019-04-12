@@ -49,7 +49,7 @@ public class TestSiteInfoProvider {
     public void testSecure() throws Exception {
 
         final Set<String> expectedClusterUrl = new LinkedHashSet<>(Arrays.asList(new String[]{"https://node1:8443", "https://node2:8443"}));
-        final String expectedActiveClusterUrl = "https://node2:8443/nifi-api";
+        final String expectedActiveClusterUrl = "https://node2:8443/dataintegration-api";
         final SSLContext expectedSslConText = mock(SSLContext.class);
         final HttpProxy expectedHttpProxy = mock(HttpProxy.class);
 
@@ -131,7 +131,7 @@ public class TestSiteInfoProvider {
     public void testPlain() throws Exception {
 
         final Set<String> expectedClusterUrl = new LinkedHashSet<>(Arrays.asList(new String[]{"http://node1:8443, http://node2:8443"}));
-        final String expectedActiveClusterUrl = "http://node2:8443/nifi-api";
+        final String expectedActiveClusterUrl = "http://node2:8443/dataintegration-api";
 
         final SiteInfoProvider siteInfoProvider = spy(new SiteInfoProvider());
         siteInfoProvider.setClusterUrls(expectedClusterUrl);

@@ -19,48 +19,48 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <link rel="stylesheet" href="../nifi/assets/jquery-ui-dist/jquery-ui.min.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/assets/slickgrid/slick.grid.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/css/slick-nifi-theme.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/js/jquery/modal/jquery.modal.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/js/jquery/combo/jquery.combo.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/assets/qtip2/dist/jquery.qtip.min.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/js/codemirror/lib/codemirror.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/js/codemirror/addon/hint/show-hint.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/js/jquery/nfeditor/jquery.nfeditor.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/js/jquery/nfeditor/languages/nfel.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/fonts/flowfont/flowfont.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/assets/font-awesome/css/font-awesome.min.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/assets/reset.css/reset.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/assets/jquery-ui-dist/jquery-ui.min.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/assets/slickgrid/slick.grid.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/css/slick-nifi-theme.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/js/jquery/modal/jquery.modal.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/js/jquery/combo/jquery.combo.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/assets/qtip2/dist/jquery.qtip.min.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/js/codemirror/lib/codemirror.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/js/codemirror/addon/hint/show-hint.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/js/jquery/nfeditor/jquery.nfeditor.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/js/jquery/nfeditor/languages/nfel.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/fonts/flowfont/flowfont.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/assets/font-awesome/css/font-awesome.min.css" type="text/css" />
+        <link rel="stylesheet" href="../dataintegration/assets/reset.css/reset.css" type="text/css" />
         <link rel="stylesheet" href="css/main.css" type="text/css" />
-        <link rel="stylesheet" href="../nifi/css/common-ui.css" type="text/css" />
-        <script type="text/javascript" src="../nifi/assets/jquery/dist/jquery.min.js"></script>
-        <script type="text/javascript" src="../nifi/js/jquery/jquery.center.js"></script>
-        <script type="text/javascript" src="../nifi/js/jquery/jquery.each.js"></script>
-        <script type="text/javascript" src="../nifi/js/jquery/jquery.tab.js"></script>
-        <script type="text/javascript" src="../nifi/js/jquery/modal/jquery.modal.js"></script>
-        <script type="text/javascript" src="../nifi/js/jquery/combo/jquery.combo.js"></script>
-        <script type="text/javascript" src="../nifi/js/jquery/jquery.ellipsis.js"></script>
-        <script type="text/javascript" src="../nifi/assets/jquery-ui-dist/jquery-ui.min.js"></script>
-        <script type="text/javascript" src="../nifi/assets/qtip2/dist/jquery.qtip.min.js"></script>
-        <script type="text/javascript" src="../nifi/assets/JSON2/json2.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/lib/jquery.event.drag-2.3.0.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/plugins/slick.cellrangedecorator.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/plugins/slick.cellrangeselector.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/plugins/slick.cellselectionmodel.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/plugins/slick.rowselectionmodel.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/slick.formatters.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/slick.editors.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/slick.dataview.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/slick.core.js"></script>
-        <script type="text/javascript" src="../nifi/assets/slickgrid/slick.grid.js"></script>
-        <script type="text/javascript" src="../nifi/js/codemirror/lib/codemirror-compressed.js"></script>
-        <script type="text/javascript" src="../nifi/js/nf/nf-namespace.js"></script>
-        <script type="text/javascript" src="../nifi/js/nf/nf-storage.js"></script>
-        <script type="text/javascript" src="../nifi/js/nf/nf-ajax-setup.js"></script>
-        <script type="text/javascript" src="../nifi/js/nf/nf-universal-capture.js"></script>
-        <script type="text/javascript" src="../nifi/js/jquery/nfeditor/languages/nfel.js"></script>
-        <script type="text/javascript" src="../nifi/js/jquery/nfeditor/jquery.nfeditor.js"></script>
+        <link rel="stylesheet" href="../dataintegration/css/common-ui.css" type="text/css" />
+        <script type="text/javascript" src="../dataintegration/assets/jquery/dist/jquery.min.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/jquery/jquery.center.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/jquery/jquery.each.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/jquery/jquery.tab.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/jquery/modal/jquery.modal.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/jquery/combo/jquery.combo.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/jquery/jquery.ellipsis.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/jquery-ui-dist/jquery-ui.min.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/qtip2/dist/jquery.qtip.min.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/JSON2/json2.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/lib/jquery.event.drag-2.3.0.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/plugins/slick.cellrangedecorator.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/plugins/slick.cellrangeselector.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/plugins/slick.cellselectionmodel.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/plugins/slick.rowselectionmodel.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/slick.formatters.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/slick.editors.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/slick.dataview.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/slick.core.js"></script>
+        <script type="text/javascript" src="../dataintegration/assets/slickgrid/slick.grid.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/codemirror/lib/codemirror-compressed.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/nf/nf-namespace.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/nf/nf-storage.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/nf/nf-ajax-setup.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/nf/nf-universal-capture.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/jquery/nfeditor/languages/nfel.js"></script>
+        <script type="text/javascript" src="../dataintegration/js/jquery/nfeditor/jquery.nfeditor.js"></script>
         <script type="text/javascript" src="js/application.js"></script>
         <title>Update Attribute</title>
     </head>

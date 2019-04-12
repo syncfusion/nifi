@@ -43,6 +43,7 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipalLookupService;
+import java.nio.file.StandardOpenOption;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -54,6 +55,10 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import java.io.InputStream;
+import java.io.IOException;
+import org.apache.commons.io.IOUtils;
+import org.apache.nifi.processor.io.InputStreamCallback;
 
 @SupportsBatching
 @InputRequirement(Requirement.INPUT_REQUIRED)
@@ -67,6 +72,7 @@ public class PutFile extends AbstractProcessor {
     public static final String REPLACE_RESOLUTION = "replace";
     public static final String IGNORE_RESOLUTION = "ignore";
     public static final String FAIL_RESOLUTION = "fail";
+	public static final String APPEND_RESOLUTION = "append";
 
     public static final String FILE_MODIFY_DATE_ATTRIBUTE = "file.lastModifiedTime";
     public static final String FILE_MODIFY_DATE_ATTR_FORMAT = "yyyy-MM-dd'T'HH:mm:ssZ";
@@ -89,7 +95,7 @@ public class PutFile extends AbstractProcessor {
             .description("Indicates what should happen when a file with the same name already exists in the output directory")
             .required(true)
             .defaultValue(FAIL_RESOLUTION)
-            .allowableValues(REPLACE_RESOLUTION, IGNORE_RESOLUTION, FAIL_RESOLUTION)
+            .allowableValues(REPLACE_RESOLUTION, IGNORE_RESOLUTION, FAIL_RESOLUTION, APPEND_RESOLUTION)
             .build();
     public static final PropertyDescriptor CHANGE_LAST_MODIFIED_TIME = new PropertyDescriptor.Builder()
             .name("Last Modified Time")
@@ -239,6 +245,21 @@ public class PutFile extends AbstractProcessor {
                         logger.warn("Penalizing {} and routing to failure as configured because file with the same name already exists", new Object[]{flowFile});
                         session.transfer(flowFile, REL_FAILURE);
                         return;
+					case APPEND_RESOLUTION:
+                        try 
+                        {
+                            final FlowFilePayloadCallback callback = new FlowFilePayloadCallback();
+                            session.read(flowFile, callback);
+                            Files.write(finalCopyFile, String.format("%s%n", callback.getContents()).getBytes(), StandardOpenOption.APPEND);
+                            session.transfer(flowFile, REL_SUCCESS);
+                        }
+                        catch (IOException e) 
+                        {
+                            flowFile = session.penalize(flowFile);
+                            logger.info("Penalizing {} and routing to failure because {}", new Object[]{flowFile, e.getMessage()});
+                            session.transfer(flowFile, REL_FAILURE);
+                        }
+                        return;
                     default:
                         break;
                 }
@@ -322,6 +343,19 @@ public class PutFile extends AbstractProcessor {
             flowFile = session.penalize(flowFile);
             logger.error("Penalizing {} and transferring to failure due to {}", new Object[]{flowFile, t});
             session.transfer(flowFile, REL_FAILURE);
+        }
+    }
+
+	protected static class FlowFilePayloadCallback implements InputStreamCallback {
+        private String contents = "";
+
+        @Override
+        public void process(final InputStream in) throws IOException {
+            contents = IOUtils.toString(in);
+        }
+
+        public String getContents() {
+            return contents;
         }
     }
 

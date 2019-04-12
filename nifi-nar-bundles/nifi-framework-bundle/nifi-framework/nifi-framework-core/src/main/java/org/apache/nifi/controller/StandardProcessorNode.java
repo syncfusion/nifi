@@ -16,6 +16,31 @@
  */
 package org.apache.nifi.controller;
 
+import static java.util.Objects.requireNonNull;
+
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
@@ -25,6 +50,7 @@ import org.apache.nifi.annotation.behavior.TriggerWhenAnyDestinationAvailable;
 import org.apache.nifi.annotation.behavior.TriggerWhenEmpty;
 import org.apache.nifi.annotation.configuration.DefaultSchedule;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
+import org.apache.nifi.annotation.documentation.DeprecationNotice;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.lifecycle.OnStopped;
 import org.apache.nifi.annotation.lifecycle.OnUnscheduled;
@@ -55,9 +81,10 @@ import org.apache.nifi.processor.ProcessSessionFactory;
 import org.apache.nifi.processor.Processor;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.SimpleProcessLogger;
-import org.apache.nifi.registry.VariableRegistry;
+import org.apache.nifi.registry.ComponentVariableRegistry;
 import org.apache.nifi.scheduling.ExecutionNode;
 import org.apache.nifi.scheduling.SchedulingStrategy;
+import org.apache.nifi.util.CharacterFilterUtils;
 import org.apache.nifi.util.FormatUtils;
 import org.apache.nifi.util.NiFiProperties;
 import org.apache.nifi.util.ReflectionUtils;
@@ -65,30 +92,6 @@ import org.quartz.CronExpression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
-
-import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * ProcessorNode provides thread-safe access to a FlowFileProcessor as it exists
@@ -125,6 +128,7 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
     private final AtomicLong schedulingNanos;
     private final ProcessScheduler processScheduler;
     private long runNanos = 0L;
+    private volatile long yieldNanos;
     private final NiFiProperties nifiProperties;
 
     private SchedulingStrategy schedulingStrategy; // guarded by read/write lock
@@ -134,7 +138,7 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
     public StandardProcessorNode(final LoggableComponent<Processor> processor, final String uuid,
                                  final ValidationContextFactory validationContextFactory, final ProcessScheduler scheduler,
                                  final ControllerServiceProvider controllerServiceProvider, final NiFiProperties nifiProperties,
-                                 final VariableRegistry variableRegistry, final ReloadComponent reloadComponent) {
+                                 final ComponentVariableRegistry variableRegistry, final ReloadComponent reloadComponent) {
 
         this(processor, uuid, validationContextFactory, scheduler, controllerServiceProvider,
             processor.getComponent().getClass().getSimpleName(), processor.getComponent().getClass().getCanonicalName(), nifiProperties, variableRegistry, reloadComponent, false);
@@ -144,7 +148,7 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
                                  final ValidationContextFactory validationContextFactory, final ProcessScheduler scheduler,
                                  final ControllerServiceProvider controllerServiceProvider,
                                  final String componentType, final String componentCanonicalClass, final NiFiProperties nifiProperties,
-                                 final VariableRegistry variableRegistry, final ReloadComponent reloadComponent, final boolean isExtensionMissing) {
+                                 final ComponentVariableRegistry variableRegistry, final ReloadComponent reloadComponent, final boolean isExtensionMissing) {
 
         super(uuid, validationContextFactory, controllerServiceProvider, componentType, componentCanonicalClass, variableRegistry, reloadComponent, isExtensionMissing);
 
@@ -238,6 +242,12 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
         return getProcessor().getClass().isAnnotationPresent(Restricted.class);
     }
 
+    @Override
+    public boolean isDeprecated() {
+        return getProcessor().getClass().isAnnotationPresent(DeprecationNotice.class);
+    }
+
+
     /**
      * Provides and opportunity to retain information about this particular
      * processor instance
@@ -247,10 +257,7 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
      */
     @Override
     public synchronized void setComments(final String comments) {
-        if (isRunning()) {
-            throw new IllegalStateException("Cannot modify Processor configuration while the Processor is running");
-        }
-        this.comments.set(comments);
+        this.comments.set(CharacterFilterUtils.filterInvalidXmlCharacters(comments));
     }
 
     @Override
@@ -396,9 +403,6 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
 
     @Override
     public synchronized void setName(final String name) {
-        if (isRunning()) {
-            throw new IllegalStateException("Cannot modify Processor configuration while the Processor is running");
-        }
         super.setName(name);
     }
 
@@ -518,7 +522,8 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
 
     @Override
     public long getYieldPeriod(final TimeUnit timeUnit) {
-        return FormatUtils.getTimeDuration(getYieldPeriod(), timeUnit == null ? DEFAULT_TIME_UNIT : timeUnit);
+        final TimeUnit unit = (timeUnit == null ? DEFAULT_TIME_UNIT : timeUnit);
+        return unit.convert(yieldNanos, TimeUnit.NANOSECONDS);
     }
 
     @Override
@@ -531,11 +536,12 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
         if (isRunning()) {
             throw new IllegalStateException("Cannot modify Processor configuration while the Processor is running");
         }
-        final long yieldMillis = FormatUtils.getTimeDuration(requireNonNull(yieldPeriod), TimeUnit.MILLISECONDS);
-        if (yieldMillis < 0) {
+        final long yieldNanos = FormatUtils.getTimeDuration(requireNonNull(yieldPeriod), TimeUnit.NANOSECONDS);
+        if (yieldNanos < 0) {
             throw new IllegalArgumentException("Yield duration must be positive");
         }
         this.yieldPeriod.set(yieldPeriod);
+        this.yieldNanos = yieldNanos;
     }
 
     /**
@@ -959,9 +965,7 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
     @Override
     public boolean isValid() {
         try {
-            final ValidationContext validationContext = this.getValidationContextFactory()
-                .newValidationContext(getProperties(), getAnnotationData(), getProcessGroupIdentifier(), getIdentifier());
-
+            final ValidationContext validationContext = getValidationContext();
             final Collection<ValidationResult> validationResults = super.validate(validationContext);
 
             for (final ValidationResult result : validationResults) {
@@ -1006,8 +1010,7 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
             // Processors may go invalid while RUNNING, but only validating while STOPPED is a trade-off
             // we are willing to make in order to save on validation costs that would be unnecessary most of the time.
             if (getScheduledState() == ScheduledState.STOPPED) {
-                final ValidationContext validationContext = this.getValidationContextFactory()
-                        .newValidationContext(getProperties(), getAnnotationData(), getProcessGroup().getIdentifier(), getIdentifier());
+                final ValidationContext validationContext = getValidationContext();
 
                 final Collection<ValidationResult> validationResults = super.validate(validationContext);
 
@@ -1106,6 +1109,7 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
     @Override
     public synchronized void setProcessGroup(final ProcessGroup group) {
         this.processGroup.set(group);
+        invalidateValidationContext();
     }
 
     @Override
@@ -1369,13 +1373,13 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
      * </p>
      */
     @Override
-    public <T extends ProcessContext & ControllerServiceLookup> void stop(final ScheduledExecutorService scheduler,
+    public <T extends ProcessContext & ControllerServiceLookup> CompletableFuture<Void> stop(final ScheduledExecutorService scheduler,
         final T processContext, final SchedulingAgent schedulingAgent, final ScheduleState scheduleState) {
 
         final Processor processor = processorRef.get().getProcessor();
         LOG.info("Stopping processor: " + processor.getClass());
 
-
+        final CompletableFuture<Void> future = new CompletableFuture<>();
         if (this.scheduledState.compareAndSet(ScheduledState.RUNNING, ScheduledState.STOPPING)) { // will ensure that the Processor represented by this node can only be stopped once
             scheduleState.incrementActiveThreadCount();
 
@@ -1402,6 +1406,7 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
 
                             scheduleState.decrementActiveThreadCount();
                             scheduledState.set(ScheduledState.STOPPED);
+                            future.complete(null);
                         } else {
                             // Not all of the active threads have finished. Try again in 100 milliseconds.
                             scheduler.schedule(this, 100, TimeUnit.MILLISECONDS);
@@ -1412,16 +1417,17 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
                 }
             });
         } else {
-        /*
-         * We do compareAndSet() instead of set() to ensure that Processor
-         * stoppage is handled consistently including a condition where
-         * Processor never got a chance to transition to RUNNING state
-         * before stop() was called. If that happens the stop processor
-         * routine will be initiated in start() method, otherwise the IF
-         * part will handle the stop processor routine.
-         */
+            // We do compareAndSet() instead of set() to ensure that Processor
+            // stoppage is handled consistently including a condition where
+            // Processor never got a chance to transition to RUNNING state
+            // before stop() was called. If that happens the stop processor
+            // routine will be initiated in start() method, otherwise the IF
+            // part will handle the stop processor routine.
             this.scheduledState.compareAndSet(ScheduledState.STARTING, ScheduledState.STOPPING);
+            future.complete(null);
         }
+
+        return future;
     }
 
     /**

@@ -28,7 +28,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.nifi</groupId>
-            <artifactId>nifi-api</artifactId>
+            <artifactId>dataintegration-api</artifactId>
             <scope>provided</scope>
         </dependency>
     </dependencies>

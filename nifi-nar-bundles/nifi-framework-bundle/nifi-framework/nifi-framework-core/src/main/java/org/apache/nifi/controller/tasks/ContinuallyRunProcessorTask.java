@@ -25,9 +25,9 @@ import org.apache.nifi.controller.FlowController;
 import org.apache.nifi.controller.ProcessorNode;
 import org.apache.nifi.controller.repository.BatchingSessionFactory;
 import org.apache.nifi.controller.repository.ProcessContext;
-import org.apache.nifi.controller.repository.StandardFlowFileEvent;
 import org.apache.nifi.controller.repository.StandardProcessSession;
 import org.apache.nifi.controller.repository.StandardProcessSessionFactory;
+import org.apache.nifi.controller.repository.metrics.StandardFlowFileEvent;
 import org.apache.nifi.controller.scheduling.ProcessContextFactory;
 import org.apache.nifi.controller.scheduling.ScheduleState;
 import org.apache.nifi.controller.scheduling.SchedulingAgent;
@@ -75,7 +75,10 @@ public class ContinuallyRunProcessorTask implements Callable<Boolean> {
     }
 
     static boolean isYielded(final ProcessorNode procNode) {
-        return procNode.getYieldExpiration() >= System.currentTimeMillis();
+        // after one yield period, the scheduling agent could call this again when
+        // yieldExpiration == currentTime, and we don't want that to still be considered 'yielded'
+        // so this uses ">" instead of ">="
+        return procNode.getYieldExpiration() > System.currentTimeMillis();
     }
 
     static boolean isWorkToDo(final ProcessorNode procNode) {

@@ -17,6 +17,7 @@
 package org.apache.nifi.processor.util;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -38,6 +39,8 @@ import org.apache.nifi.expression.AttributeExpression.ResultType;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.DataUnit;
 import org.apache.nifi.util.FormatUtils;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class StandardValidators {
 
@@ -160,6 +163,84 @@ public class StandardValidators {
         }
     };
 
+    
+        public static final Validator GA_JSON_P12_VALIDATOR = new Validator() {
+        @Override
+        public ValidationResult validate(final String subject, final String value, final ValidationContext context) {
+            if((value != null && !value.isEmpty())){
+                if(value.endsWith(".json")||value.endsWith(".p12")){
+                    return new ValidationResult.Builder().subject(subject).input(value).explanation("Valid json or p12 file").valid(true).build();
+                }
+                return new ValidationResult.Builder().subject(subject).input(value).explanation(" the given file path does not have p12 or json file format").valid(false).build();
+            }
+            else{
+                return new ValidationResult.Builder().subject(subject).input(value).valid(false).explanation(subject + " cannot be empty").build();
+            }
+            
+        }
+    };
+        
+                public static final Validator GA_SERVICE_ACCOUNT_MAIL_VALIDATOR = new Validator() {
+        @Override
+        public ValidationResult validate(final String subject, final String value, final ValidationContext context) {
+            if((value != null && !value.isEmpty())){
+                if(!value.endsWith(".iam.gserviceaccount.com")){
+                    return new ValidationResult.Builder().subject(subject).input(value).explanation(subject+" not a valid service account mail id.").valid(false).build();
+                    
+                }
+                return new ValidationResult.Builder().subject(subject).input(value).explanation("Valid service account mail id.").valid(true).build();
+            }
+            else{
+                return new ValidationResult.Builder().subject(subject).input(value).valid(false).explanation(subject + " cannot be empty").build();
+            }
+            
+        }
+    };
+                
+                public static final Validator GA_PROFILE_ID_VALIDATOR = new Validator() {
+        @Override
+        public ValidationResult validate(final String subject, final String value, final ValidationContext context) {
+            
+            if((value != null && !value.isEmpty())){
+                String ProfileId= value.substring(value.lastIndexOf(":") + 1);
+                if(!value.startsWith("ga:")){
+                    return new ValidationResult.Builder().subject(subject).input(value).explanation(subject+ " is not valid. It should start with ga:").valid(false).build();
+                    
+                }
+                else if(ProfileId!=null && !value.isEmpty()&&ProfileId.contains("[a-zA-Z]+")){
+                    return new ValidationResult.Builder().subject(subject).input(value).explanation( subject + " is not valid. It should match ga:[0-9]+").valid(false).build();
+                }
+                else{
+                    return new ValidationResult.Builder().subject(subject).input(value).valid(true).build();
+                }
+            }
+            else{
+                return new ValidationResult.Builder().subject(subject).input(value).valid(false).explanation(subject + " cannot be empty").build();
+            }
+            
+        }
+    };
+                
+                public static final Validator GA_DATE_VALIDATOR = new Validator() {
+        @Override
+        public ValidationResult validate(final String subject, final String value, final ValidationContext context) {
+            if((value != null && !value.isEmpty())){
+                if(!value.equals("today")&&!value.equals("yesterday")&&!value.contains("daysAgo")&&!value.matches("([0-9]{4})-([0-9]{2})-([0-9]{2})")){
+                    if(value.contains("[0-9]+")){
+                        return new ValidationResult.Builder().subject(subject).input(value).explanation( subject +" is not valid date format. Date should match this format (YYYY-MM-DD).").valid(false).build();
+                    }
+                    return new ValidationResult.Builder().subject(subject).input(value).explanation( subject +" is not in valid format.").valid(false).build();
+                }
+                else{
+                    return new ValidationResult.Builder().subject(subject).input(value).valid(true).build();
+                }
+            }
+            else{
+                return new ValidationResult.Builder().subject(subject).input(value).valid(false).explanation(subject + " cannot be empty").build();
+            }
+            
+        }
+    };
     /**
      * {@link Validator} that ensures that value's length > 0 and that expression language is present
      */
@@ -285,6 +366,26 @@ public class StandardValidators {
         }
     };
 
+    public static final Validator JSON_STRING_VALIDATOR = new Validator() {
+        @Override
+        public ValidationResult validate(final String subject, final String input, final ValidationContext context) {
+            ValidationResult validationResult = new ValidationResult.Builder().subject(subject).input(input).explanation("not a valid Json string, please enter valid Json string").valid(false).build();
+            try {
+                if (!input.startsWith("$")) {
+                    final ObjectMapper mapper = new ObjectMapper();
+                mapper.readTree(input);
+                if(input.startsWith("{")&&input.endsWith("}"))
+                    validationResult =  new ValidationResult.Builder().subject(subject).input(input).explanation("valid Json string").valid(true).build();
+                } else{
+                    validationResult =  new ValidationResult.Builder().subject(subject).input(input).explanation("valid Json string").valid(true).build();
+                }
+                return validationResult;
+            } catch (IOException e) {
+                return validationResult;
+            }
+        }
+    };
+    
     public static final Validator NON_NEGATIVE_INTEGER_VALIDATOR = new Validator() {
         @Override
         public ValidationResult validate(final String subject, final String value, final ValidationContext context) {
@@ -391,6 +492,8 @@ public class StandardValidators {
     }
 
     public static final Validator TIME_PERIOD_VALIDATOR = new Validator() {
+        private final Pattern TIME_DURATION_PATTERN = Pattern.compile(FormatUtils.TIME_DURATION_REGEX);
+
         @Override
         public ValidationResult validate(final String subject, final String input, final ValidationContext context) {
             if (context.isExpressionLanguageSupported(subject) && context.isExpressionLanguagePresent(input)) {
@@ -400,7 +503,7 @@ public class StandardValidators {
             if (input == null) {
                 return new ValidationResult.Builder().subject(subject).input(input).valid(false).explanation("Time Period cannot be null").build();
             }
-            if (Pattern.compile(FormatUtils.TIME_DURATION_REGEX).matcher(input.toLowerCase()).matches()) {
+            if (TIME_DURATION_PATTERN.matcher(input.toLowerCase()).matches()) {
                 return new ValidationResult.Builder().subject(subject).input(input).valid(true).build();
             } else {
                 return new ValidationResult.Builder()
@@ -416,6 +519,8 @@ public class StandardValidators {
     };
 
     public static final Validator DATA_SIZE_VALIDATOR = new Validator() {
+        private final Pattern DATA_SIZE_PATTERN = Pattern.compile(DataUnit.DATA_SIZE_REGEX);
+
         @Override
         public ValidationResult validate(final String subject, final String input, final ValidationContext context) {
             if (context.isExpressionLanguageSupported(subject) && context.isExpressionLanguagePresent(input)) {
@@ -430,7 +535,7 @@ public class StandardValidators {
                         .explanation("Data Size cannot be null")
                         .build();
             }
-            if (Pattern.compile(DataUnit.DATA_SIZE_REGEX).matcher(input.toUpperCase()).matches()) {
+            if (DATA_SIZE_PATTERN.matcher(input.toUpperCase()).matches()) {
                 return new ValidationResult.Builder().subject(subject).input(input).valid(true).build();
             } else {
                 return new ValidationResult.Builder()
@@ -706,8 +811,7 @@ public class StandardValidators {
     //
     //
     static class TimePeriodValidator implements Validator {
-
-        private final Pattern pattern;
+        private static final Pattern pattern = Pattern.compile(FormatUtils.TIME_DURATION_REGEX);
 
         private final long minNanos;
         private final long maxNanos;
@@ -716,8 +820,6 @@ public class StandardValidators {
         private final String maxValueEnglish;
 
         public TimePeriodValidator(final long minValue, final TimeUnit minTimeUnit, final long maxValue, final TimeUnit maxTimeUnit) {
-            pattern = Pattern.compile(FormatUtils.TIME_DURATION_REGEX);
-
             this.minNanos = TimeUnit.NANOSECONDS.convert(minValue, minTimeUnit);
             this.maxNanos = TimeUnit.NANOSECONDS.convert(maxValue, maxTimeUnit);
             this.minValueEnglish = minValue + " " + minTimeUnit.toString();

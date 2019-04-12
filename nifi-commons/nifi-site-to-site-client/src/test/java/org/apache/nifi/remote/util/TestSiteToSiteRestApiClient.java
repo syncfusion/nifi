@@ -35,33 +35,33 @@ public class TestSiteToSiteRestApiClient {
 
     @Test
     public void testResolveBaseUrlHttp() throws Exception{
-        assertSingleUri("http://nifi.example.com/nifi-api", parseClusterUrls("http://nifi.example.com/nifi"));
+        assertSingleUri("http://nifi.example.com/dataintegration-api", parseClusterUrls("http://nifi.example.com/nifi"));
     }
 
     @Test
     public void testResolveBaseUrlHttpSub() throws Exception{
-        assertSingleUri("http://nifi.example.com/foo/bar/baz/nifi-api", parseClusterUrls("http://nifi.example.com/foo/bar/baz/nifi"));
+        assertSingleUri("http://nifi.example.com/foo/bar/baz/dataintegration-api", parseClusterUrls("http://nifi.example.com/foo/bar/baz/nifi"));
     }
 
     @Test
     public void testResolveBaseUrlHttpPort() {
-        assertSingleUri("http://nifi.example.com:8080/nifi-api", parseClusterUrls("http://nifi.example.com:8080/nifi"));
+        assertSingleUri("http://nifi.example.com:8080/dataintegration-api", parseClusterUrls("http://nifi.example.com:8080/nifi"));
     }
 
     @Test
     public void testResolveBaseUrlHttps() throws Exception{
-        assertSingleUri("https://nifi.example.com/nifi-api", parseClusterUrls("https://nifi.example.com/nifi"));
+        assertSingleUri("https://nifi.example.com/dataintegration-api", parseClusterUrls("https://nifi.example.com/nifi"));
     }
 
     @Test
     public void testResolveBaseUrlHttpsPort() {
-        assertSingleUri("https://nifi.example.com:8443/nifi-api", parseClusterUrls("https://nifi.example.com:8443/nifi"));
+        assertSingleUri("https://nifi.example.com:8443/dataintegration-api", parseClusterUrls("https://nifi.example.com:8443/nifi"));
     }
 
     @Test
     public void testResolveBaseUrlLeniency() {
 
-        String expectedUri = "http://localhost:8080/nifi-api";
+        String expectedUri = "http://localhost:8080/dataintegration-api";
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/"));
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080"));
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080 "));
@@ -70,29 +70,29 @@ public class TestSiteToSiteRestApiClient {
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/nifi/"));
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/nifi/ "));
         assertSingleUri(expectedUri, parseClusterUrls(" http://localhost:8080/nifi/ "));
-        assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/nifi-api"));
-        assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/nifi-api/"));
+        assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/dataintegration-api"));
+        assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/dataintegration-api/"));
 
-        expectedUri = "http://localhost/nifi-api";
+        expectedUri = "http://localhost/dataintegration-api";
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost"));
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost/"));
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost/nifi"));
-        assertSingleUri(expectedUri, parseClusterUrls("http://localhost/nifi-api"));
+        assertSingleUri(expectedUri, parseClusterUrls("http://localhost/dataintegration-api"));
 
-        expectedUri = "http://localhost:8080/some/path/nifi-api";
+        expectedUri = "http://localhost:8080/some/path/dataintegration-api";
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/some/path"));
         assertSingleUri(expectedUri, parseClusterUrls(" http://localhost:8080/some/path"));
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/some/path "));
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/some/path/nifi"));
         assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/some/path/nifi/"));
-        assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/some/path/nifi-api"));
-        assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/some/path/nifi-api/"));
+        assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/some/path/dataintegration-api"));
+        assertSingleUri(expectedUri, parseClusterUrls("http://localhost:8080/some/path/dataintegration-api/"));
     }
 
     @Test
     public void testResolveBaseUrlLeniencyHttps() {
 
-        String expectedUri = "https://localhost:8443/nifi-api";
+        String expectedUri = "https://localhost:8443/dataintegration-api";
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/"));
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443"));
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443 "));
@@ -101,23 +101,23 @@ public class TestSiteToSiteRestApiClient {
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/nifi/"));
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/nifi/ "));
         assertSingleUri(expectedUri, parseClusterUrls(" https://localhost:8443/nifi/ "));
-        assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/nifi-api"));
-        assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/nifi-api/"));
+        assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/dataintegration-api"));
+        assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/dataintegration-api/"));
 
-        expectedUri = "https://localhost/nifi-api";
+        expectedUri = "https://localhost/dataintegration-api";
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost"));
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost/"));
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost/nifi"));
-        assertSingleUri(expectedUri, parseClusterUrls("https://localhost/nifi-api"));
+        assertSingleUri(expectedUri, parseClusterUrls("https://localhost/dataintegration-api"));
 
-        expectedUri = "https://localhost:8443/some/path/nifi-api";
+        expectedUri = "https://localhost:8443/some/path/dataintegration-api";
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/some/path"));
         assertSingleUri(expectedUri, parseClusterUrls(" https://localhost:8443/some/path"));
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/some/path "));
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/some/path/nifi"));
         assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/some/path/nifi/"));
-        assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/some/path/nifi-api"));
-        assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/some/path/nifi-api/"));
+        assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/some/path/dataintegration-api"));
+        assertSingleUri(expectedUri, parseClusterUrls("https://localhost:8443/some/path/dataintegration-api/"));
     }
 
     @Test
@@ -140,7 +140,7 @@ public class TestSiteToSiteRestApiClient {
         final Set<String> urls = parseClusterUrls("http://localhost:8080/nifi");
 
         Assert.assertEquals(1, urls.size());
-        Assert.assertEquals("http://localhost:8080/nifi-api", urls.iterator().next());
+        Assert.assertEquals("http://localhost:8080/dataintegration-api", urls.iterator().next());
     }
 
     @Test
@@ -149,9 +149,9 @@ public class TestSiteToSiteRestApiClient {
 
         Assert.assertEquals(3, urls.size());
         final Iterator<String> iterator = urls.iterator();
-        Assert.assertEquals("http://host1:8080/nifi-api", iterator.next());
-        Assert.assertEquals("http://host2:8080/nifi-api", iterator.next());
-        Assert.assertEquals("http://host3:8080/nifi-api", iterator.next());
+        Assert.assertEquals("http://host1:8080/dataintegration-api", iterator.next());
+        Assert.assertEquals("http://host2:8080/dataintegration-api", iterator.next());
+        Assert.assertEquals("http://host3:8080/dataintegration-api", iterator.next());
     }
 
     @Test

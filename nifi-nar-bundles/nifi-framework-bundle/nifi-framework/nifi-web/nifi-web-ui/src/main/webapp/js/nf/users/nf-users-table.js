@@ -598,7 +598,7 @@
                 // not a global policy... check if user has access to the component reference
                 return componentResourceParser(dataContext);
             } else {
-                return '<span class="unset">' + dataContext.id + '</span>';
+                return '<span class="unset">' + nfCommon.escapeHtml(dataContext.id) + '</span>';
             }
         };
 
@@ -643,7 +643,7 @@
                 markup += dataContext.component.action;
             }
 
-            return markup;
+            return nfCommon.escapeHtml(markup);
         };
 
         var userPoliciesColumns = [
@@ -750,7 +750,7 @@
     /**
      * Initializes the processor list.
      */
-    var initUsersTable = function () {
+    var initUsersTable = function (configurableUsersAndGroups) {
         // define the function for filtering the list
         $('#users-filter').keyup(function () {
             applyFilter();
@@ -774,7 +774,7 @@
                 markup += '<div class="fa fa-users" style="margin-right: 5px;"></div>';
             }
 
-            markup += dataContext.component.identity;
+            markup += nfCommon.escapeHtml(dataContext.component.identity);
 
             return markup;
         };
@@ -783,11 +783,11 @@
         var membersGroupsFormatter = function (row, cell, value, columnDef, dataContext) {
             if (dataContext.type === 'group') {
                 return 'Members: <b>' + dataContext.component.users.map(function (user) {
-                        return user.component.identity;
+                        return nfCommon.escapeHtml(user.component.identity);
                     }).join('</b>, <b>') + '</b>';
             } else {
                 return 'Member of: <b>' + dataContext.component.userGroups.map(function (group) {
-                        return group.component.identity;
+                        return nfCommon.escapeHtml(group.component.identity);
                     }).join('</b>, <b>') + '</b>';
             }
         };
@@ -797,7 +797,7 @@
             var markup = '';
 
             // ensure user can modify the user
-            if (nfCommon.canModifyTenants()) {
+            if (configurableUsersAndGroups && dataContext.component.configurable === true && nfCommon.canModifyTenants()) {
                 markup += '<div title="Edit" class="pointer edit-user fa fa-pencil" style="margin-right: 3px;"></div>';
                 markup += '<div title="Remove" class="pointer delete-user fa fa-trash"></div>';
             }
@@ -1215,28 +1215,32 @@
     };
 
     var nfUsersTable = {
-        init: function () {
+        init: function (configurableUsersAndGroups) {
             initUserDialog();
             initUserPoliciesDialog();
             initUserPoliciesTable();
             initUserDeleteDialog();
-            initUsersTable();
+            initUsersTable(configurableUsersAndGroups);
 
-            if (nfCommon.canModifyTenants()) {
-                $('#new-user-button').on('click', function () {
-                    buildUsersList();
-                    buildGroupsList();
+            if (configurableUsersAndGroups) {
+                $('#new-user-button').show();
 
-                    // show the dialog
-                    $('#user-dialog').modal('show');
+                if (nfCommon.canModifyTenants()) {
+                    $('#new-user-button').on('click', function () {
+                        buildUsersList();
+                        buildGroupsList();
 
-                    // set the focus automatically, only when adding a new user
-                    $('#user-identity-edit-dialog').focus();
-                });
+                        // show the dialog
+                        $('#user-dialog').modal('show');
 
-                $('#new-user-button').prop('disabled', false);
-            } else {
-                $('#new-user-button').prop('disabled', true);
+                        // set the focus automatically, only when adding a new user
+                        $('#user-identity-edit-dialog').focus();
+                    });
+
+                    $('#new-user-button').prop('disabled', false);
+                } else {
+                    $('#new-user-button').prop('disabled', true);
+                }
             }
         },
 

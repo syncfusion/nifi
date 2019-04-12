@@ -1,0 +1,90 @@
+            #publish-template-dialog {
+                min-width: 500px;
+                background-color: #fff;
+                min-height: 435px;
+                height: auto!important;
+                overflow-x:hidden;
+                overflow-y:hidden;
+            }
+            #publish-template-dialog .setting {
+                float: left;
+                width: 100%;
+            }
+            #publish-template-dialog .setting-name {
+                float: left;
+                width: 50%;
+                margin-top: 6px;
+                margin-right: 0px;
+            }
+            #publish-template-dialog .setting-field {
+                float: left;
+                color: rgba(0, 0, 0, 0.87);
+                width: 45%;
+                padding-left:4%;
+            }
+            #publish-template-dialog .dialog-content {
+                max-height: 292px;
+                overflow-y: auto;
+            }
+            .login-credentials {
+                display: none;
+            }
+            .group-name {
+                width: 204px;
+                height: 32px;
+                border: 1px solid rgb(170, 170, 170);
+            }
+            .publish-radio-button{
+                box-shadow: none!important;
+                float: left;
+                margin-left: 0px;
+            }
+            .publish-radio-button-changes{
+                margin-left: 20px;
+            }
+            .publish-radio-label{
+                letter-spacing: 0!important;
+                width: 80px;
+                float: left;
+            }
+            .publish-radio-label-changes{
+                width: 70px;
+            }
+            .publish-hostname-changes{
+                padding-top: 5px;
+            }
+            .publish-setting-changes{
+                padding-top: 4px;
+            }
+            #remote-server-host-name{
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            .select-process-group-section {
+                display: none;
+            }
+            .template-error-status {
+                color: darkred
+            }
+            #publish-template-dialog input[type=text],#publish-template-dialog input[type=password]{
+                width:204px;
+            }
+            .secured-checkbox{
+                box-shadow: none!important;
+                margin-left: 0px;
+            }
+            .publish-loader-icon{
+                height: 49px;
+                width: 49px;
+                background-image: url(../../images/waitingpopup.gif);
+                position: absolute;
+                z-index: 2;
+                margin-top: 25%;
+                margin-left: 50%;
+                float: left;
+                display: none;
+            }
+            #template-name{
+                display: none;
+            }
+  

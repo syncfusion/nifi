@@ -33,8 +33,8 @@ import org.apache.nifi.components.state.Scope;
 import org.apache.nifi.components.state.StateManager;
 import org.apache.nifi.components.state.StateMap;
 import org.apache.nifi.dbcp.DBCPService;
-import org.apache.nifi.expression.AttributeExpression;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.flowfile.attributes.CoreAttributes;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
@@ -66,6 +66,11 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
+
+import static org.apache.nifi.processors.standard.util.JdbcCommon.DEFAULT_PRECISION;
+import static org.apache.nifi.processors.standard.util.JdbcCommon.DEFAULT_SCALE;
+import static org.apache.nifi.processors.standard.util.JdbcCommon.NORMALIZE_NAMES_FOR_AVRO;
+import static org.apache.nifi.processors.standard.util.JdbcCommon.USE_AVRO_LOGICAL_TYPES;
 
 
 @EventDriven
@@ -104,8 +109,6 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
 
     public static final String RESULT_TABLENAME = "tablename";
     public static final String RESULT_ROW_COUNT = "querydbtable.row.count";
-    public static final String INTIIAL_MAX_VALUE_PROP_START = "initial.maxvalue.";
-
 
     public static final PropertyDescriptor FETCH_SIZE = new PropertyDescriptor.Builder()
             .name("Fetch Size")
@@ -155,6 +158,10 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
         pds.add(MAX_ROWS_PER_FLOW_FILE);
         pds.add(MAX_FRAGMENTS);
         pds.add(NORMALIZE_NAMES_FOR_AVRO);
+        pds.add(USE_AVRO_LOGICAL_TYPES);
+        pds.add(DEFAULT_PRECISION);
+        pds.add(DEFAULT_SCALE);
+        pds.add(WHERE_CLAUSE);
         propDescriptors = Collections.unmodifiableList(pds);
     }
 
@@ -168,20 +175,9 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
         return propDescriptors;
     }
 
-    @Override
-    protected PropertyDescriptor getSupportedDynamicPropertyDescriptor(final String propertyDescriptorName) {
-        return new PropertyDescriptor.Builder()
-                .name(propertyDescriptorName)
-                .required(false)
-                .addValidator(StandardValidators.createAttributeExpressionLanguageValidator(AttributeExpression.ResultType.STRING, true))
-                .addValidator(StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR)
-                .expressionLanguageSupported(true)
-                .dynamic(true)
-                .build();
-    }
-
     @OnScheduled
     public void setup(final ProcessContext context) {
+        maxValueProperties = getDefaultMaxValueProperties(context.getProperties());
         super.setup(context);
     }
 
@@ -197,14 +193,20 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
         final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions().getValue();
         final String columnNames = context.getProperty(COLUMN_NAMES).evaluateAttributeExpressions().getValue();
         final String maxValueColumnNames = context.getProperty(MAX_VALUE_COLUMN_NAMES).evaluateAttributeExpressions().getValue();
+        final String customWhereClause = context.getProperty(WHERE_CLAUSE).evaluateAttributeExpressions().getValue();
         final Integer fetchSize = context.getProperty(FETCH_SIZE).evaluateAttributeExpressions().asInteger();
         final Integer maxRowsPerFlowFile = context.getProperty(MAX_ROWS_PER_FLOW_FILE).evaluateAttributeExpressions().asInteger();
         final Integer maxFragments = context.getProperty(MAX_FRAGMENTS).isSet()
                 ? context.getProperty(MAX_FRAGMENTS).evaluateAttributeExpressions().asInteger()
                 : 0;
-        final boolean convertNamesForAvro = context.getProperty(NORMALIZE_NAMES_FOR_AVRO).asBoolean();
-
-        final Map<String,String> maxValueProperties = getDefaultMaxValueProperties(context.getProperties());
+        final JdbcCommon.AvroConversionOptions options = JdbcCommon.AvroConversionOptions.builder()
+                .recordName(tableName)
+                .maxRows(maxRowsPerFlowFile)
+                .convertNames(context.getProperty(NORMALIZE_NAMES_FOR_AVRO).asBoolean())
+                .useLogicalTypes(context.getProperty(USE_AVRO_LOGICAL_TYPES).asBoolean())
+                .defaultPrecision(context.getProperty(DEFAULT_PRECISION).evaluateAttributeExpressions().asInteger())
+                .defaultScale(context.getProperty(DEFAULT_SCALE).evaluateAttributeExpressions().asInteger())
+                .build();
 
         final StateManager stateManager = context.getStateManager();
         final StateMap stateMap;
@@ -243,7 +245,7 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
         List<String> maxValueColumnNameList = StringUtils.isEmpty(maxValueColumnNames)
                 ? null
                 : Arrays.asList(maxValueColumnNames.split("\\s*,\\s*"));
-        final String selectQuery = getQuery(dbAdapter, tableName, columnNames, maxValueColumnNameList, statePropertyMap);
+        final String selectQuery = getQuery(dbAdapter, tableName, columnNames, maxValueColumnNameList, customWhereClause, statePropertyMap);
         final StopWatch stopWatch = new StopWatch(true);
         final String fragmentIdentifier = UUID.randomUUID().toString();
 
@@ -284,7 +286,7 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
                             // Max values will be updated in the state property map by the callback
                             final MaxValueResultSetRowCollector maxValCollector = new MaxValueResultSetRowCollector(tableName, statePropertyMap, dbAdapter);
                             try {
-                                nrOfRows.set(JdbcCommon.convertToAvroStream(resultSet, out, tableName, maxValCollector, maxRowsPerFlowFile, convertNamesForAvro));
+                                nrOfRows.set(JdbcCommon.convertToAvroStream(resultSet, out, options, maxValCollector));
                             } catch (SQLException | RuntimeException e) {
                                 throw new ProcessException("Error during database query or conversion of records to Avro.", e);
                             }
@@ -299,6 +301,7 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
                         // set attribute how many rows were selected
                         fileToProcess = session.putAttribute(fileToProcess, RESULT_ROW_COUNT, String.valueOf(nrOfRows.get()));
                         fileToProcess = session.putAttribute(fileToProcess, RESULT_TABLENAME, tableName);
+                        fileToProcess = session.putAttribute(fileToProcess, CoreAttributes.MIME_TYPE.key(), JdbcCommon.MIME_TYPE_AVRO_BINARY);
                         if(maxRowsPerFlowFile > 0) {
                             fileToProcess = session.putAttribute(fileToProcess, "fragment.identifier", fragmentIdentifier);
                             fileToProcess = session.putAttribute(fileToProcess, "fragment.index", String.valueOf(fragmentIndex));
@@ -362,15 +365,15 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
     }
 
     protected String getQuery(DatabaseAdapter dbAdapter, String tableName, String columnNames, List<String> maxValColumnNames,
-                              Map<String, String> stateMap) {
+                              String customWhereClause, Map<String, String> stateMap) {
         if (StringUtils.isEmpty(tableName)) {
             throw new IllegalArgumentException("Table name must be specified");
         }
         final StringBuilder query = new StringBuilder(dbAdapter.getSelectStatement(tableName, columnNames, null, null, null, null));
 
+        List<String> whereClauses = new ArrayList<>();
         // Check state map for last max values
         if (stateMap != null && !stateMap.isEmpty() && maxValColumnNames != null) {
-            List<String> whereClauses = new ArrayList<>(maxValColumnNames.size());
             IntStream.range(0, maxValColumnNames.size()).forEach((index) -> {
                 String colName = maxValColumnNames.get(index);
                 String maxValueKey = getStateKey(tableName, colName);
@@ -391,30 +394,18 @@ public class QueryDatabaseTable extends AbstractDatabaseFetchProcessor {
                     whereClauses.add(colName + (index == 0 ? " > " : " >= ") + getLiteralByType(type, maxValue, dbAdapter.getName()));
                 }
             });
-            if (!whereClauses.isEmpty()) {
-                query.append(" WHERE ");
-                query.append(StringUtils.join(whereClauses, " AND "));
-            }
+        }
+
+        if (customWhereClause != null) {
+            whereClauses.add("(" + customWhereClause + ")");
+        }
+
+        if (!whereClauses.isEmpty()) {
+            query.append(" WHERE ");
+            query.append(StringUtils.join(whereClauses, " AND "));
         }
 
         return query.toString();
-    }
-
-
-    protected Map<String,String> getDefaultMaxValueProperties(final Map<PropertyDescriptor, String> properties){
-        final Map<String,String> defaultMaxValues = new HashMap<>();
-
-        for (final Map.Entry<PropertyDescriptor, String> entry : properties.entrySet()) {
-            final String key = entry.getKey().getName();
-
-            if(!key.startsWith(INTIIAL_MAX_VALUE_PROP_START)) {
-                continue;
-            }
-
-            defaultMaxValues.put(key.substring(INTIIAL_MAX_VALUE_PROP_START.length()), entry.getValue());
-        }
-
-        return defaultMaxValues;
     }
 
     protected class MaxValueResultSetRowCollector implements JdbcCommon.ResultSetRowCallback {

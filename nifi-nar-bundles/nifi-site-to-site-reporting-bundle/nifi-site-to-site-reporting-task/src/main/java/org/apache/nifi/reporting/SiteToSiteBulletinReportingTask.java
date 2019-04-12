@@ -23,6 +23,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -73,20 +74,12 @@ public class SiteToSiteBulletinReportingTask extends AbstractSiteToSiteReporting
 
     private volatile long lastSentBulletinId = -1L;
 
-    static List<PropertyDescriptor> descriptors = new ArrayList<>();
-
-    static {
-        descriptors.add(DESTINATION_URL);
-        descriptors.add(PORT_NAME);
-        descriptors.add(SSL_CONTEXT);
-        descriptors.add(COMPRESS);
-        descriptors.add(TIMEOUT);
-        descriptors.add(PLATFORM);
-    }
-
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
-        return descriptors;
+        final List<PropertyDescriptor> properties = new ArrayList<>(super.getSupportedPropertyDescriptors());
+        properties.add(PLATFORM);
+        properties.remove(BATCH_SIZE);
+        return properties;
     }
 
     @Override
@@ -163,9 +156,13 @@ public class SiteToSiteBulletinReportingTask extends AbstractSiteToSiteReporting
                 return;
             }
 
+            final Map<String, String> attributes = new HashMap<>();
             final String transactionId = UUID.randomUUID().toString();
+            attributes.put("reporting.task.transaction.id", transactionId);
+            attributes.put("mime.type", "application/json");
+
             final byte[] data = jsonArray.toString().getBytes(StandardCharsets.UTF_8);
-            transaction.send(data, Collections.singletonMap("reporting.task.transaction.id", transactionId));
+            transaction.send(data, attributes);
             transaction.confirm();
             transaction.complete();
 
@@ -195,6 +192,7 @@ public class SiteToSiteBulletinReportingTask extends AbstractSiteToSiteReporting
         addField(builder, "bulletinId", bulletin.getId());
         addField(builder, "bulletinCategory", bulletin.getCategory());
         addField(builder, "bulletinGroupId", bulletin.getGroupId());
+        addField(builder, "bulletinGroupName", bulletin.getGroupName());
         addField(builder, "bulletinLevel", bulletin.getLevel());
         addField(builder, "bulletinMessage", bulletin.getMessage());
         addField(builder, "bulletinNodeAddress", bulletin.getNodeAddress());

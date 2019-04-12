@@ -33,6 +33,8 @@ import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.ValidationContext;
+import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.components.state.Scope;
 import org.apache.nifi.components.state.StateMap;
 import org.apache.nifi.distributed.cache.client.DistributedMapCacheClient;
@@ -48,6 +50,7 @@ import org.apache.nifi.processor.util.StandardValidators;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,15 +61,16 @@ import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-
 @TriggerSerially
 @TriggerWhenEmpty
 @InputRequirement(Requirement.INPUT_FORBIDDEN)
 @Tags({"hadoop", "HDFS", "get", "list", "ingest", "source", "filesystem"})
-@CapabilityDescription("Retrieves a listing of files from HDFS. For each file that is listed in HDFS, creates a FlowFile that represents "
-        + "the HDFS file so that it can be fetched in conjunction with FetchHDFS. This Processor is designed to run on Primary Node only "
-        + "in a cluster. If the primary node changes, the new Primary Node will pick up where the previous node left off without duplicating "
-        + "all of the data. Unlike GetHDFS, this Processor does not delete any data from HDFS.")
+@CapabilityDescription("Retrieves a listing of files from HDFS. Each time a listing is performed, the files with the latest timestamp will be excluded "
+        + "and picked up during the next execution of the processor. This is done to ensure that we do not miss any files, or produce duplicates, in the "
+        + "cases where files with the same timestamp are written immediately before and after a single execution of the processor. For each file that is "
+        + "listed in HDFS, this processor creates a FlowFile that represents the HDFS file to be fetched in conjunction with FetchHDFS. This Processor is "
+        +  "designed to run on Primary Node only in a cluster. If the primary node changes, the new Primary Node will pick up where the previous node left "
+        +  "off without duplicating all of the data. Unlike GetHDFS, this Processor does not delete any data from HDFS.")
 @WritesAttributes({
     @WritesAttribute(attribute="filename", description="The name of the file that was read from HDFS."),
     @WritesAttribute(attribute="path", description="The path is set to the absolute path of the file's directory on HDFS. For example, if the Directory property is set to /tmp, "
@@ -80,10 +84,11 @@ import java.util.regex.Pattern;
     @WritesAttribute(attribute="hdfs.permissions", description="The permissions for the file in HDFS. This is formatted as 3 characters for the owner, "
             + "3 for the group, and 3 for other users. For example rw-rw-r--")
 })
-@Stateful(scopes = Scope.CLUSTER, description = "After performing a listing of HDFS files, the timestamp of the newest file is stored, "
-    + "along with the filenames of all files that share that same timestamp. This allows the Processor to list only files that have been added or modified after "
-    + "this date the next time that the Processor is run. State is stored across the cluster so that this Processor can be run on Primary Node only and if a new Primary "
-    + "Node is selected, the new node can pick up where the previous node left off, without duplicating the data.")
+@Stateful(scopes = Scope.CLUSTER, description = "After performing a listing of HDFS files, the latest timestamp of all the files listed and the latest "
+        + "timestamp of all the files transferred are both stored. This allows the Processor to list only files that have been added or modified after "
+        + "this date the next time that the Processor is run, without having to store all of the actual filenames/paths which could lead to performance "
+        + "problems. State is stored across the cluster so that this Processor can be run on Primary Node only and if a new Primary "
+        + "Node is selected, the new node can pick up where the previous node left off, without duplicating the data.")
 @SeeAlso({GetHDFS.class, FetchHDFS.class, PutHDFS.class})
 public class ListHDFS extends AbstractHadoopProcessor {
 
@@ -109,6 +114,24 @@ public class ListHDFS extends AbstractHadoopProcessor {
         .required(true)
         .defaultValue("[^\\.].*")
         .addValidator(StandardValidators.REGULAR_EXPRESSION_VALIDATOR)
+        .build();
+
+    public static final PropertyDescriptor MIN_AGE = new PropertyDescriptor.Builder()
+        .name("minimum-file-age")
+        .displayName("Minimum File Age")
+        .description("The minimum age that a file must be in order to be pulled; any file younger than this "
+                + "amount of time (based on last modification date) will be ignored")
+        .required(false)
+        .addValidator(StandardValidators.createTimePeriodValidator(0, TimeUnit.MILLISECONDS, Long.MAX_VALUE, TimeUnit.NANOSECONDS))
+        .build();
+
+    public static final PropertyDescriptor MAX_AGE = new PropertyDescriptor.Builder()
+        .name("maximum-file-age")
+        .displayName("Maximum File Age")
+        .description("The maximum age that a file must be in order to be pulled; any file older than this "
+                + "amount of time (based on last modification date) will be ignored. Minimum value is 100ms.")
+        .required(false)
+        .addValidator(StandardValidators.createTimePeriodValidator(100, TimeUnit.MILLISECONDS, Long.MAX_VALUE, TimeUnit.NANOSECONDS))
         .build();
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -141,6 +164,8 @@ public class ListHDFS extends AbstractHadoopProcessor {
         props.add(DIRECTORY);
         props.add(RECURSE_SUBDIRS);
         props.add(FILE_FILTER);
+        props.add(MIN_AGE);
+        props.add(MAX_AGE);
         return props;
     }
 
@@ -149,6 +174,23 @@ public class ListHDFS extends AbstractHadoopProcessor {
         final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         return relationships;
+    }
+
+    @Override
+    protected Collection<ValidationResult> customValidate(ValidationContext context) {
+        final List<ValidationResult> problems = new ArrayList<>(super.customValidate(context));
+
+        final Long minAgeProp = context.getProperty(MIN_AGE).asTimePeriod(TimeUnit.MILLISECONDS);
+        final Long maxAgeProp = context.getProperty(MAX_AGE).asTimePeriod(TimeUnit.MILLISECONDS);
+        final long minimumAge = (minAgeProp == null) ? 0L : minAgeProp;
+        final long maximumAge = (maxAgeProp == null) ? Long.MAX_VALUE : maxAgeProp;
+
+        if (minimumAge > maximumAge) {
+            problems.add(new ValidationResult.Builder().valid(false).subject("GetHDFS Configuration")
+                    .explanation(MIN_AGE.getName() + " cannot be greater than " + MAX_AGE.getName()).build());
+        }
+
+        return problems;
     }
 
     protected String getKey(final String directory) {
@@ -168,15 +210,28 @@ public class ListHDFS extends AbstractHadoopProcessor {
      * Determines which of the given FileStatus's describes a File that should be listed.
      *
      * @param statuses the eligible FileStatus objects that we could potentially list
+     * @param context processor context with properties values
      * @return a Set containing only those FileStatus objects that we want to list
      */
-    Set<FileStatus> determineListable(final Set<FileStatus> statuses) {
+    Set<FileStatus> determineListable(final Set<FileStatus> statuses, ProcessContext context) {
         final long minTimestamp = this.latestTimestampListed;
         final TreeMap<Long, List<FileStatus>> orderedEntries = new TreeMap<>();
+
+        final Long minAgeProp = context.getProperty(MIN_AGE).asTimePeriod(TimeUnit.MILLISECONDS);
+        // NIFI-4144 - setting to MIN_VALUE so that in case the file modification time is in
+        // the future relative to the nifi instance, files are not skipped.
+        final long minimumAge = (minAgeProp == null) ? Long.MIN_VALUE : minAgeProp;
+        final Long maxAgeProp = context.getProperty(MAX_AGE).asTimePeriod(TimeUnit.MILLISECONDS);
+        final long maximumAge = (maxAgeProp == null) ? Long.MAX_VALUE : maxAgeProp;
 
         // Build a sorted map to determine the latest possible entries
         for (final FileStatus status : statuses) {
             if (status.getPath().getName().endsWith("_COPYING_")) {
+                continue;
+            }
+
+            final long fileAge = System.currentTimeMillis() - status.getModificationTime();
+            if (minimumAge > fileAge || fileAge > maximumAge) {
                 continue;
             }
 
@@ -290,7 +345,7 @@ public class ListHDFS extends AbstractHadoopProcessor {
             return;
         }
 
-        final Set<FileStatus> listable = determineListable(statuses);
+        final Set<FileStatus> listable = determineListable(statuses, context);
         getLogger().debug("Of the {} files found in HDFS, {} are listable", new Object[] {statuses.size(), listable.size()});
 
         for (final FileStatus status : listable) {

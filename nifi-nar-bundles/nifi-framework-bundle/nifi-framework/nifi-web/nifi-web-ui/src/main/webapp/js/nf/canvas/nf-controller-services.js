@@ -361,7 +361,8 @@
                 name: 'Tags',
                 field: 'tags',
                 sortable: true,
-                resizable: true
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
             }
         ];
 
@@ -624,10 +625,10 @@
      */
     var nameFormatter = function (row, cell, value, columnDef, dataContext) {
         if (!dataContext.permissions.canRead) {
-            return '<span class="blank">' + dataContext.id + '</span>';
+            return '<span class="blank">' + nfCommon.escapeHtml(dataContext.id) + '</span>';
         }
         
-        return dataContext.component.name;
+        return nfCommon.escapeHtml(dataContext.component.name);
     };
 
     /**
@@ -652,9 +653,9 @@
                 var selectedData = selection.datum();
                 if (selectedData.id === dataContext.component.parentGroupId) {
                     if (selectedData.permissions.canRead) {
-                        return selectedData.component.name;
+                        return nfCommon.escapeHtml(selectedData.component.name);
                     } else {
-                        return selectedData.id;
+                        return nfCommon.escapeHtml(selectedData.id);
                     }
                 }
             }
@@ -670,7 +671,7 @@
                 }
             });
 
-            return processGroupLabel;
+            return nfCommon.escapeHtml(processGroupLabel);
         } else {
             return 'Controller';
         }
@@ -782,11 +783,9 @@
             if (!dataContext.permissions.canRead) {
                 return '';
             }
-            
-            var markup = '<div class="pointer view-controller-service fa fa-info-circle" title="View Details" style="margin-top: 5px; margin-right: 3px;" ></div>';
 
             // always include a button to view the usage
-            markup += '<div title="Usage" class="pointer controller-service-usage fa fa-book" style="margin-top: 5px; margin-right: 3px;" ></div>';
+            var markup = '<div title="Usage" class="pointer controller-service-usage fa fa-book" style="margin-top: 5px; margin-right: 3px;" ></div>';
 
             var hasErrors = !nfCommon.isEmpty(dataContext.component.validationErrors);
             var hasBulletins = !nfCommon.isEmpty(dataContext.bulletins);
@@ -854,9 +853,10 @@
 
                 if (definedByCurrentGroup === true) {
                     if (dataContext.component.state === 'ENABLED' || dataContext.component.state === 'ENABLING') {
+                        markup += '<div class="pointer view-controller-service fa fa-gear" title="View Configuration" style="margin-top: 2px; margin-right: 3px;" ></div>';
                         markup += '<div class="pointer disable-controller-service icon icon-enable-false" title="Disable" style="margin-top: 2px; margin-right: 3px;" ></div>';
                     } else if (dataContext.component.state === 'DISABLED') {
-                        markup += '<div class="pointer edit-controller-service fa fa-pencil" title="Edit" style="margin-top: 2px; margin-right: 3px;" ></div>';
+                        markup += '<div class="pointer edit-controller-service fa fa-gear" title="Configure" style="margin-top: 2px; margin-right: 3px;" ></div>';
 
                         // if there are no validation errors allow enabling
                         if (nfCommon.isEmpty(dataContext.component.validationErrors)) {
@@ -881,7 +881,7 @@
             }
 
             // allow policy configuration conditionally
-            if (nfCanvasUtils.isConfigurableAuthorizer() && nfCommon.canAccessTenants()) {
+            if (nfCanvasUtils.isManagedAuthorizer() && nfCommon.canAccessTenants()) {
                 markup += '<div title="Access Policies" class="pointer edit-access-policies fa fa-key" style="margin-top: 2px;"></div>';
             }
 
@@ -938,7 +938,16 @@
         ];
 
         // action column should always be last
-        controllerServicesColumns.push({id: 'actions', name: '&nbsp;', resizable: false, formatter: controllerServiceActionFormatter, sortable: false, width: 90, maxWidth: 90});
+        controllerServicesColumns.push(
+            {
+                id: 'actions',
+                name: '&nbsp;',
+                resizable: false,
+                formatter: controllerServiceActionFormatter,
+                sortable: false,
+                width: 90,
+                maxWidth: 90
+            });
 
         // initialize the dataview
         var controllerServicesData = new Slick.Data.DataView({
@@ -975,6 +984,8 @@
             if (controllerServicesGrid.getColumns()[args.cell].id === 'actions') {
                 if (target.hasClass('edit-controller-service')) {
                     nfControllerService.showConfiguration(serviceTable, controllerServiceEntity);
+                } else if (target.hasClass('view-controller-service')) {
+                    nfControllerService.showDetails(serviceTable, controllerServiceEntity);
                 } else if (target.hasClass('enable-controller-service')) {
                     nfControllerService.enable(serviceTable, controllerServiceEntity);
                 } else if (target.hasClass('disable-controller-service')) {
@@ -1011,16 +1022,17 @@
                     });
                 }
             } else if (controllerServicesGrid.getColumns()[args.cell].id === 'moreDetails') {
-                if (target.hasClass('view-controller-service')) {
-                    nfControllerService.showDetails(serviceTable, controllerServiceEntity);
-                } else if (target.hasClass('controller-service-usage')) {
+                if (target.hasClass('controller-service-usage')) {
                      // close the settings dialog
                      $('#shell-close-button').click();
 
                      // open the documentation for this controller service
-                     nfShell.showPage('../nifi-docs/documentation?' + $.param({
-                         select: nfCommon.substringAfterLast(controllerServiceEntity.component.type, '.')
-                     })).done(function() {
+                    nfShell.showPage('../nifi-docs/documentation?' + $.param({
+                            select: controllerServiceEntity.component.type,
+                            group: controllerServiceEntity.component.bundle.group,
+                            artifact: controllerServiceEntity.component.bundle.artifact,
+                            version: controllerServiceEntity.component.bundle.version
+                    })).done(function() {
                          if (nfCommon.isDefinedAndNotNull(controllerServiceEntity.component.parentGroupId)) {
                              var groupId;
                              var processGroup = nfProcessGroup.get(controllerServiceEntity.component.parentGroupId);
@@ -1035,8 +1047,8 @@
                          } else {
                              showSettings();
                          }
-                     });
-                 }
+                    });
+                }
             }
         });
 

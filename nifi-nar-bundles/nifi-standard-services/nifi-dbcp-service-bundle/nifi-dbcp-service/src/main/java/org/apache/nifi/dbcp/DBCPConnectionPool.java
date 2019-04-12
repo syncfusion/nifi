@@ -73,7 +73,7 @@ public class DBCPConnectionPool extends AbstractControllerService implements DBC
         .build();
 
     public static final PropertyDescriptor DB_DRIVER_LOCATION = new PropertyDescriptor.Builder()
-        .name("database-driver-locations")
+        .name("DBCP-database-driver-locations")
         .displayName("Database Driver Location(s)")
         .description("Comma-separated list of files/folders and/or URLs containing the driver JAR and its dependencies (if any). For example '/var/tmp/mariadb-java-client-1.1.7.jar'")
         .defaultValue(null)

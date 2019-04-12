@@ -47,13 +47,13 @@ import org.apache.nifi.cdc.mysql.event.CommitTransactionEventInfo;
 import org.apache.nifi.cdc.mysql.event.DeleteRowsEventInfo;
 import org.apache.nifi.cdc.mysql.event.InsertRowsEventInfo;
 import org.apache.nifi.cdc.mysql.event.RawBinlogEvent;
-import org.apache.nifi.cdc.mysql.event.SchemaChangeEventInfo;
+import org.apache.nifi.cdc.mysql.event.DDLEventInfo;
 import org.apache.nifi.cdc.mysql.event.UpdateRowsEventInfo;
 import org.apache.nifi.cdc.mysql.event.io.BeginTransactionEventWriter;
 import org.apache.nifi.cdc.mysql.event.io.CommitTransactionEventWriter;
 import org.apache.nifi.cdc.mysql.event.io.DeleteRowsWriter;
 import org.apache.nifi.cdc.mysql.event.io.InsertRowsWriter;
-import org.apache.nifi.cdc.mysql.event.io.SchemaChangeEventWriter;
+import org.apache.nifi.cdc.mysql.event.io.DDLEventWriter;
 import org.apache.nifi.cdc.mysql.event.io.UpdateRowsWriter;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
@@ -125,10 +125,10 @@ import static com.github.shyiko.mysql.binlog.event.EventType.WRITE_ROWS;
 @Stateful(scopes = Scope.CLUSTER, description = "Information such as a 'pointer' to the current CDC event in the database is stored by this processor, such "
         + "that it can continue from the same location if restarted.")
 @WritesAttributes({
-        @WritesAttribute(attribute = "cdc.sequence.id", description = "A sequence identifier (i.e. strictly increasing integer value) specifying the order "
+        @WritesAttribute(attribute = EventWriter.SEQUENCE_ID_KEY, description = "A sequence identifier (i.e. strictly increasing integer value) specifying the order "
                 + "of the CDC event flow file relative to the other event flow file(s)."),
-        @WritesAttribute(attribute = "cdc.event.type", description = "A string indicating the type of CDC event that occurred, including (but not limited to) "
-                + "'begin', 'write', 'update', 'delete', 'schema_change' and 'commit'."),
+        @WritesAttribute(attribute = EventWriter.CDC_EVENT_TYPE_ATTRIBUTE, description = "A string indicating the type of CDC event that occurred, including (but not limited to) "
+                + "'begin', 'insert', 'update', 'delete', 'ddl' and 'commit'."),
         @WritesAttribute(attribute = "mime.type", description = "The processor outputs flow file content in JSON format, and sets the mime.type attribute to "
                 + "application/json")
 })
@@ -149,8 +149,11 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
     public static final PropertyDescriptor DATABASE_NAME_PATTERN = new PropertyDescriptor.Builder()
             .name("capture-change-mysql-db-name-pattern")
             .displayName("Database/Schema Name Pattern")
-            .description("A regular expression (regex) for matching databases or schemas (depending on your RDBMS' terminology) against the list of CDC events. The regex must match "
-                    + "the schema name as it is stored in the database. If the property is not set, the schema name will not be used to filter the CDC events.")
+            .description("A regular expression (regex) for matching databases (or schemas, depending on your RDBMS' terminology) against the list of CDC events. The regex must match "
+                    + "the database name as it is stored in the RDBMS. If the property is not set, the database name will not be used to filter the CDC events. "
+                    + "NOTE: DDL events, even if they affect different databases, are associated with the database used by the session to execute the DDL. "
+                    + "This means if a connection is made to one database, but the DDL is issued against another, then the connected database will be the one matched against "
+                    + "the specified pattern.")
             .required(false)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
@@ -263,6 +266,28 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
 
+    public static final PropertyDescriptor INCLUDE_BEGIN_COMMIT = new PropertyDescriptor.Builder()
+            .name("capture-change-mysql-include-begin-commit")
+            .displayName("Include Begin/Commit Events")
+            .description("Specifies whether to emit events corresponding to a BEGIN or COMMIT event in the binary log. Set to true if the BEGIN/COMMIT events are necessary in the downstream flow, "
+                    + "otherwise set to false, which suppresses generation of these events and can increase flow performance.")
+            .required(true)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .build();
+
+    public static final PropertyDescriptor INCLUDE_DDL_EVENTS = new PropertyDescriptor.Builder()
+            .name("capture-change-mysql-include-ddl-events")
+            .displayName("Include DDL Events")
+            .description("Specifies whether to emit events corresponding to Data Definition Language (DDL) events such as ALTER TABLE, TRUNCATE TABLE, e.g. in the binary log. Set to true "
+                    + "if the DDL events are desired/necessary in the downstream flow, otherwise set to false, which suppresses generation of these events and can increase flow performance.")
+            .required(true)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .build();
+
     public static final PropertyDescriptor STATE_UPDATE_INTERVAL = new PropertyDescriptor.Builder()
             .name("capture-change-mysql-state-update-interval")
             .displayName("State Update Interval")
@@ -329,8 +354,11 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
     private volatile long xactSequenceId = 0;
 
     private volatile TableInfo currentTable = null;
+    private volatile String currentDatabase = null;
     private volatile Pattern databaseNamePattern;
     private volatile Pattern tableNamePattern;
+    private volatile boolean includeBeginCommit = false;
+    private volatile boolean includeDDLEvents = false;
 
     private volatile boolean inTransaction = false;
     private volatile boolean skipTable = false;
@@ -353,7 +381,7 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
 
     private final BeginTransactionEventWriter beginEventWriter = new BeginTransactionEventWriter();
     private final CommitTransactionEventWriter commitEventWriter = new CommitTransactionEventWriter();
-    private final SchemaChangeEventWriter schemaChangeEventWriter = new SchemaChangeEventWriter();
+    private final DDLEventWriter ddlEventWriter = new DDLEventWriter();
     private final InsertRowsWriter insertRowsWriter = new InsertRowsWriter();
     private final DeleteRowsWriter deleteRowsWriter = new DeleteRowsWriter();
     private final UpdateRowsWriter updateRowsWriter = new UpdateRowsWriter();
@@ -376,6 +404,8 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
         pds.add(CONNECT_TIMEOUT);
         pds.add(DIST_CACHE_CLIENT);
         pds.add(RETRIEVE_ALL_RECORDS);
+        pds.add(INCLUDE_BEGIN_COMMIT);
+        pds.add(INCLUDE_DDL_EVENTS);
         pds.add(STATE_UPDATE_INTERVAL);
         pds.add(INIT_SEQUENCE_ID);
         pds.add(INIT_BINLOG_FILENAME);
@@ -419,6 +449,9 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
         stateUpdateInterval = context.getProperty(STATE_UPDATE_INTERVAL).evaluateAttributeExpressions().asTimePeriod(TimeUnit.MILLISECONDS);
 
         boolean getAllRecords = context.getProperty(RETRIEVE_ALL_RECORDS).asBoolean();
+
+        includeBeginCommit = context.getProperty(INCLUDE_BEGIN_COMMIT).asBoolean();
+        includeDDLEvents = context.getProperty(INCLUDE_DDL_EVENTS).asBoolean();
 
         // Set current binlog filename to whatever is in State, falling back to the Retrieve All Records then Initial Binlog Filename if no State variable is present
         currentBinlogFile = stateMap.get(BinlogEventInfo.BINLOG_FILENAME_KEY);
@@ -611,6 +644,7 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
         int connectionAttempts = 0;
         final int numHosts = hosts.size();
         InetSocketAddress connectedHost = null;
+        Exception lastConnectException = new Exception("Unknown connection error");
 
         while (connectedHost == null && connectionAttempts < numHosts) {
             if (binlogClient == null) {
@@ -653,11 +687,12 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
                 transitUri = "<unknown>";
                 currentHost = (currentHost + 1) % numHosts;
                 connectionAttempts++;
+                lastConnectException = te;
             }
         }
         if (!binlogClient.isConnected()) {
             binlogClient = null;
-            throw new IOException("Could not connect binlog client to any of the specified hosts");
+            throw new IOException("Could not connect binlog client to any of the specified hosts due to: " + lastConnectException.getMessage(), lastConnectException);
         }
 
         if (createEnrichmentConnection) {
@@ -728,9 +763,12 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
                     }
                     break;
                 case QUERY:
-                    // Is this the start of a transaction?
                     QueryEventData queryEventData = event.getData();
+                    currentDatabase = queryEventData.getDatabase();
+
                     String sql = queryEventData.getSql();
+
+                    // Is this the start of a transaction?
                     if ("BEGIN".equals(sql)) {
                         // If we're already in a transaction, something bad happened, alert the user
                         if (inTransaction) {
@@ -741,8 +779,10 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
                         xactBinlogPosition = currentBinlogPosition;
                         xactSequenceId = currentSequenceId.get();
 
-                        BeginTransactionEventInfo beginEvent = new BeginTransactionEventInfo(timestamp, currentBinlogFile, currentBinlogPosition);
-                        currentSequenceId.set(beginEventWriter.writeEvent(currentSession, transitUri, beginEvent, currentSequenceId.get(), REL_SUCCESS));
+                        if (includeBeginCommit && (databaseNamePattern == null || databaseNamePattern.matcher(currentDatabase).matches())) {
+                            BeginTransactionEventInfo beginEvent = new BeginTransactionEventInfo(currentDatabase, timestamp, currentBinlogFile, currentBinlogPosition);
+                            currentSequenceId.set(beginEventWriter.writeEvent(currentSession, transitUri, beginEvent, currentSequenceId.get(), REL_SUCCESS));
+                        }
                         inTransaction = true;
                     } else if ("COMMIT".equals(sql)) {
                         if (!inTransaction) {
@@ -750,26 +790,39 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
                                     + "This could indicate that your binlog position is invalid.");
                         }
                         // InnoDB generates XID events for "commit", but MyISAM generates Query events with "COMMIT", so handle that here
-                        CommitTransactionEventInfo commitTransactionEvent = new CommitTransactionEventInfo(timestamp, currentBinlogFile, currentBinlogPosition);
-                        currentSequenceId.set(commitEventWriter.writeEvent(currentSession, transitUri, commitTransactionEvent, currentSequenceId.get(), REL_SUCCESS));
+                        if (includeBeginCommit && (databaseNamePattern == null || databaseNamePattern.matcher(currentDatabase).matches())) {
+                            CommitTransactionEventInfo commitTransactionEvent = new CommitTransactionEventInfo(currentDatabase, timestamp, currentBinlogFile, currentBinlogPosition);
+                            currentSequenceId.set(commitEventWriter.writeEvent(currentSession, transitUri, commitTransactionEvent, currentSequenceId.get(), REL_SUCCESS));
+                        }
                         // Commit the NiFi session
                         session.commit();
                         inTransaction = false;
                         currentTable = null;
 
                     } else {
-                        // Check for schema change events (alter table, e.g.). Normalize the query to do string matching on the type of change
+                        // Check for DDL events (alter table, e.g.). Normalize the query to do string matching on the type of change
                         String normalizedQuery = sql.toLowerCase().trim().replaceAll(" {2,}", " ");
                         if (normalizedQuery.startsWith("alter table")
                                 || normalizedQuery.startsWith("alter ignore table")
                                 || normalizedQuery.startsWith("create table")
+                                || normalizedQuery.startsWith("truncate table")
+                                || normalizedQuery.startsWith("rename table")
                                 || normalizedQuery.startsWith("drop table")
                                 || normalizedQuery.startsWith("drop database")) {
-                            SchemaChangeEventInfo schemaChangeEvent = new SchemaChangeEventInfo(currentTable, timestamp, currentBinlogFile, currentBinlogPosition, normalizedQuery);
-                            currentSequenceId.set(schemaChangeEventWriter.writeEvent(currentSession, transitUri, schemaChangeEvent, currentSequenceId.get(), REL_SUCCESS));
+
+                            if (includeDDLEvents && (databaseNamePattern == null || databaseNamePattern.matcher(currentDatabase).matches())) {
+                                // If we don't have table information, we can still use the database name
+                                TableInfo ddlTableInfo = (currentTable != null) ? currentTable : new TableInfo(currentDatabase, null, null, null);
+                                DDLEventInfo ddlEvent = new DDLEventInfo(ddlTableInfo, timestamp, currentBinlogFile, currentBinlogPosition, sql);
+                                currentSequenceId.set(ddlEventWriter.writeEvent(currentSession, transitUri, ddlEvent, currentSequenceId.get(), REL_SUCCESS));
+                            }
                             // Remove all the keys from the cache that this processor added
                             if (cacheClient != null) {
                                 cacheClient.removeByPattern(this.getIdentifier() + ".*");
+                            }
+                            // If not in a transaction, commit the session so the DDL event(s) will be transferred
+                            if (includeDDLEvents && !inTransaction) {
+                                session.commit();
                             }
                         }
                     }
@@ -780,12 +833,15 @@ public class CaptureChangeMySQL extends AbstractSessionFactoryProcessor {
                         throw new IOException("COMMIT event received while not processing a transaction (i.e. no corresponding BEGIN event). "
                                 + "This could indicate that your binlog position is invalid.");
                     }
-                    CommitTransactionEventInfo commitTransactionEvent = new CommitTransactionEventInfo(timestamp, currentBinlogFile, currentBinlogPosition);
-                    currentSequenceId.set(commitEventWriter.writeEvent(currentSession, transitUri, commitTransactionEvent, currentSequenceId.get(), REL_SUCCESS));
+                    if (includeBeginCommit && (databaseNamePattern == null || databaseNamePattern.matcher(currentDatabase).matches())) {
+                        CommitTransactionEventInfo commitTransactionEvent = new CommitTransactionEventInfo(currentDatabase, timestamp, currentBinlogFile, currentBinlogPosition);
+                        currentSequenceId.set(commitEventWriter.writeEvent(currentSession, transitUri, commitTransactionEvent, currentSequenceId.get(), REL_SUCCESS));
+                    }
                     // Commit the NiFi session
                     session.commit();
                     inTransaction = false;
                     currentTable = null;
+                    currentDatabase = null;
                     break;
 
                 case WRITE_ROWS:

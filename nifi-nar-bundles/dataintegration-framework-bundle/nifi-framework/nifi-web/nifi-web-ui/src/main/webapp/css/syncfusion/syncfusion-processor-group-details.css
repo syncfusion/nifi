@@ -1,0 +1,70 @@
+
+#processor-group-details {
+    overflow: hidden;
+    font-size: 10px;
+    display: none;
+    left: 15px!important;
+    top: 6px!important;
+    min-width: 98%!important;
+    min-height: 98%!important;
+}
+    
+#processor-group-details>.dialog-content{
+    top: 55px;
+    bottom: 65px;
+}
+   
+#processor-group-details>.dialog-content>#Grid{
+    width: 99.6%;
+}
+    
+#processor-group-details>.dialog-content>#Grid tr{
+    height: 38px;
+}
+    
+.text-overflow{
+    text-overflow: ellipsis;
+}
+    
+.header-css{
+    padding-left: 24px!important;
+    padding-right: 24px!important;
+    font-weight: bold;
+    font-size: 12px!important;
+}
+    
+.e-headercell.header-css{
+    height: 48px!important;
+}
+   
+.e-headercell.header-css>.e-headercelldiv{
+    font-size: 12px!important;
+    font-weight: bold!important;
+}
+    
+.processor-info-icon{
+    background-size: 13px;
+    width: 13px;
+    height: 13px;
+    float: left;
+    margin-right: 10px;
+}
+    
+.error-text-property{
+    text-align: center;
+    padding-top: 13px;
+    font-size: 12px;
+    font-weight: 500;
+}
+    
+.processorName{
+    color: rgb(18, 128, 206);
+    cursor: pointer;
+}
+    
+.time-details{
+    padding-right: 50px;
+    font-weight: bold;
+}
+
+

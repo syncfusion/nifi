@@ -134,7 +134,14 @@
         tabContentId: 'cluster-system-tab-content',
         tableId: 'cluster-system-table',
         tableColumnModel: [
-            {id: 'node', field: 'node', name: 'Node Address', sortable: true, resizable: true},
+            {
+                id: 'node',
+                field: 'node',
+                name: 'Node Address',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
             {
                 id: 'processors',
                 field: 'processors',
@@ -142,7 +149,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'processorLoadAverage',
@@ -151,7 +159,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'totalThreads',
@@ -160,7 +169,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'daemonThreads',
@@ -169,7 +179,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             }
         ],
         tableIdColumn: 'id',
@@ -195,7 +206,14 @@
         tabContentId: 'cluster-flowfile-tab-content',
         tableId: 'cluster-flowfile-table',
         tableColumnModel: [
-            {id: 'node', field: 'node', name: 'Node Address', sortable: true, resizable: true},
+            {
+                id: 'node',
+                field: 'node',
+                name: 'Node Address',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
             {
                 id: 'ffRepoTotal',
                 field: 'ffRepoTotal',
@@ -203,7 +221,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'ffRepoUsed',
@@ -212,7 +231,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'ffRepoFree',
@@ -221,7 +241,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'ffStoreUtil',
@@ -230,7 +251,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             }
         ],
         tableIdColumn: 'id',
@@ -256,8 +278,22 @@
         tabContentId: 'cluster-content-tab-content',
         tableId: 'cluster-content-table',
         tableColumnModel: [
-            {id: 'node', field: 'node', name: 'Node Address', sortable: true, resizable: true},
-            {id: 'contentRepoId', field: 'contentRepoId', name: 'Content Repository', sortable: true, resizable: true},
+            {
+                id: 'node',
+                field: 'node',
+                name: 'Node Address',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'contentRepoId',
+                field: 'contentRepoId',
+                name: 'Content Repository',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
             {
                 id: 'contentRepoTotal',
                 field: 'contentRepoTotal',
@@ -265,7 +301,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'contentRepoUsed',
@@ -274,7 +311,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'contentRepoFree',
@@ -283,7 +321,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'contentRepoUtil',
@@ -292,7 +331,91 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
+            }
+        ],
+        tableIdColumn: 'id',
+        tableOptions: commonTableOptions,
+        tableOnClick: null,
+        createTableOnEnter: null,
+        cleanUpTable: null,
+        init: commonTableInit,
+        onSort: sort,
+        onTabSelected: onSelectTab,
+        filterOptions: [{
+            text: 'by address',
+            value: 'node'
+        }, {
+            text: 'by repository',
+            value: 'contentRepoId'
+        }]
+    };
+
+    var provenanceTab = {
+        name: 'Provenance Storage',
+        data: {
+            dataSet: 'systemDiagnostics',
+            update: updateProvenanceTableData
+        },
+        tabContentId: 'cluster-provenance-tab-content',
+        tableId: 'cluster-provenance-table',
+        tableColumnModel: [
+            {
+                id: 'node',
+                field: 'node',
+                name: 'Node Address',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'provenanceRepoId',
+                field: 'provenanceRepoId',
+                name: 'Provenance Repository',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'provenanceRepoTotal',
+                field: 'provenanceRepoTotal',
+                name: 'Total Space',
+                sortable: true,
+                resizable: true,
+                cssClass: 'cell-right',
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'provenanceRepoUsed',
+                field: 'provenanceRepoUsed',
+                name: 'Used Space',
+                sortable: true,
+                resizable: true,
+                cssClass: 'cell-right',
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'provenanceRepoFree',
+                field: 'provenanceRepoFree',
+                name: 'Free Space',
+                sortable: true,
+                resizable: true,
+                cssClass: 'cell-right',
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'provenanceRepoUtil',
+                field: 'provenanceRepoUtil',
+                name: 'Utilization',
+                sortable: true,
+                resizable: true,
+                cssClass: 'cell-right',
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             }
         ],
         tableIdColumn: 'id',
@@ -321,13 +444,62 @@
         tabContentId: 'cluster-version-tab-content',
         tableId: 'cluster-version-table',
         tableColumnModel: [
-            {id: 'node', field: 'node', name: 'Node Address', sortable: true, resizable: true},
-            {id: 'version', field: 'version', name: 'NiFi Version', sortable: true, resizable: true},
-            {id: 'javavendor', field: 'javaVendor', name: 'Java Vendor', sortable: true, resizable: true},
-            {id: 'javaversion', field: 'javaVersion', name: 'Java Version', sortable: true, resizable: true},
-            {id: 'osname', field: 'osName', name: 'OS Name', sortable: true, resizable: true},
-            {id: 'osversion', field: 'osVersion', name: 'OS Version', sortable: true, resizable: true},
-            {id: 'osarch', field: 'osArchitecture', name: 'OS Architecture', sortable: true, resizable: true}
+            {
+                id: 'node',
+                field: 'node',
+                name: 'Node Address',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'version',
+                field: 'version',
+                name: 'NiFi Version',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'javavendor',
+                field: 'javaVendor',
+                name: 'Java Vendor',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'javaversion',
+                field: 'javaVersion',
+                name: 'Java Version',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'osname',
+                field: 'osName',
+                name: 'OS Name',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'osversion',
+                field: 'osVersion',
+                name: 'OS Version',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            },
+            {
+                id: 'osarch',
+                field: 'osArchitecture',
+                name: 'OS Architecture',
+                sortable: true,
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
+            }
         ],
         tableIdColumn: 'id',
         tableOptions: commonTableOptions,
@@ -343,7 +515,7 @@
         }]
     };
 
-    var clusterTabs = [nodesTab, systemTab, jvmTab, flowFileTab, contentTab, versionTab];
+    var clusterTabs = [nodesTab, systemTab, jvmTab, flowFileTab, contentTab, provenanceTab, versionTab];
     var tabsByName = {};
     var dataSetHandlers = {};
 
@@ -413,7 +585,8 @@
                 name: 'Active Thread Count',
                 resizable: true,
                 sortable: true,
-                defaultSortAsc: false
+                defaultSortAsc: false,
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'queued',
@@ -421,7 +594,8 @@
                 name: '<span class="queued-title">Queue</span>&nbsp;/&nbsp;<span class="queued-size-title">Size</span>',
                 resizable: true,
                 sortable: true,
-                defaultSortAsc: false
+                defaultSortAsc: false,
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'status',
@@ -540,7 +714,8 @@
                 field: 'node',
                 name: 'Node Address',
                 sortable: true,
-                resizable: true
+                resizable: true,
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'heapMax',
@@ -549,7 +724,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'heapTotal',
@@ -558,7 +734,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'heapUsed',
@@ -567,7 +744,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'heapUtilPct',
@@ -576,7 +754,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'nonHeapTotal',
@@ -585,7 +764,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'nonHeapUsed',
@@ -594,7 +774,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             },
             {
                 id: 'gc',
@@ -612,7 +793,8 @@
                 sortable: true,
                 resizable: true,
                 cssClass: 'cell-right',
-                headerCssClass: 'header-right'
+                headerCssClass: 'header-right',
+                formatter: nfCommon.genericValueFormatter
             }
         ];
     }
@@ -717,7 +899,7 @@
         if (node.roles.includes(config.clusterCoordinator)) {
             markup += ', COORDINATOR';
         }
-        return markup;
+        return nfCommon.escapeHtml(markup);
     }
 
     /**
@@ -1098,6 +1280,39 @@
             contentTab.grid.invalidate();
         } else {
             contentTab.rowCount = 0;
+        }
+    }
+
+    /**
+     * Applies system diagnostics data to the Provenance Storage tab.
+     */
+    function updateProvenanceTableData(systemDiagnosticsResponse) {
+        if (nfCommon.isDefinedAndNotNull(systemDiagnosticsResponse.systemDiagnostics)
+            && nfCommon.isDefinedAndNotNull(systemDiagnosticsResponse.systemDiagnostics.nodeSnapshots)) {
+
+            var provenanceStorageTableRows = [];
+            systemDiagnosticsResponse.systemDiagnostics.nodeSnapshots.forEach(function (nodeSnapshot) {
+                var snapshot = nodeSnapshot.snapshot;
+                snapshot.provenanceRepositoryStorageUsage.forEach(function (provenanceRepoUsage) {
+                	provenanceStorageTableRows.push({
+                        id: nodeSnapshot.nodeId + ':' + provenanceRepoUsage.identifier,
+                        address: nodeSnapshot.address,
+                        node: nodeSnapshot.address + ':' + nodeSnapshot.apiPort,
+                        provenanceRepoId: provenanceRepoUsage.identifier,
+                        provenanceRepoTotal: provenanceRepoUsage.totalSpace,
+                        provenanceRepoUsed: provenanceRepoUsage.usedSpace,
+                        provenanceRepoFree: provenanceRepoUsage.freeSpace,
+                        provenanceRepoUtil: provenanceRepoUsage.utilization
+                    });
+                });
+            });
+
+            provenanceTab.rowCount = provenanceStorageTableRows.length;
+            provenanceTab.dataView.setItems(provenanceStorageTableRows);
+            provenanceTab.dataView.reSort();
+            provenanceTab.grid.invalidate();
+        } else {
+        	provenanceTab.rowCount = 0;
         }
     }
 

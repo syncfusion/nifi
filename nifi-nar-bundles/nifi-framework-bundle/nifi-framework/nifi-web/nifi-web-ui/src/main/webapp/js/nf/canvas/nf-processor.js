@@ -47,6 +47,7 @@
     var nfConnectable;
     var nfDraggable;
     var nfSelectable;
+    var nfQuickSelect;
     var nfContextMenu;
 
     var PREVIEW_NAME_LENGTH = 25;
@@ -181,7 +182,7 @@
             .text('\uf132');
 
         // make processors selectable
-        processor.call(nfSelectable.activate).call(nfContextMenu.activate);
+        processor.call(nfSelectable.activate).call(nfContextMenu.activate).call(nfQuickSelect.activate);
     };
 
     /**
@@ -876,12 +877,14 @@
          * @param nfDraggableRef   The nfDraggable module.
          * @param nfSelectableRef   The nfSelectable module.
          * @param nfContextMenuRef   The nfContextMenu module.
+         * @param nfQuickSelectRef   The nfQuickSelect module.
          */
-        init: function (nfConnectableRef, nfDraggableRef, nfSelectableRef, nfContextMenuRef) {
+        init: function (nfConnectableRef, nfDraggableRef, nfSelectableRef, nfContextMenuRef, nfQuickSelectRef) {
             nfConnectable = nfConnectableRef;
             nfDraggable = nfDraggableRef;
             nfSelectable = nfSelectableRef;
             nfContextMenu = nfContextMenuRef;
+            nfQuickSelect = nfQuickSelectRef;
 
             processorMap = d3.map();
             removedCache = d3.map();
@@ -944,16 +947,18 @@
         set: function (processorEntities, options) {
             var selectAll = false;
             var transition = false;
+            var overrideRevisionCheck = false;
             if (nfCommon.isDefinedAndNotNull(options)) {
                 selectAll = nfCommon.isDefinedAndNotNull(options.selectAll) ? options.selectAll : selectAll;
                 transition = nfCommon.isDefinedAndNotNull(options.transition) ? options.transition : transition;
+                overrideRevisionCheck = nfCommon.isDefinedAndNotNull(options.overrideRevisionCheck) ? options.overrideRevisionCheck : overrideRevisionCheck;
             }
 
             var set = function (proposedProcessorEntity) {
                 var currentProcessorEntity = processorMap.get(proposedProcessorEntity.id);
 
                 // set the processor if appropriate due to revision and wasn't previously removed
-                if (nfClient.isNewerRevision(currentProcessorEntity, proposedProcessorEntity) && !removedCache.has(proposedProcessorEntity.id)) {
+                if ((nfClient.isNewerRevision(currentProcessorEntity, proposedProcessorEntity) && !removedCache.has(proposedProcessorEntity.id)) || overrideRevisionCheck === true) {
                     processorMap.set(proposedProcessorEntity.id, $.extend({
                         type: 'Processor',
                         dimensions: dimensions

@@ -1,0 +1,141 @@
+    @-webkit-keyframes spin {
+        0% { -webkit-transform: rotate(0deg); }
+        100% { -webkit-transform: rotate(360deg); }
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media screen and (max-width:1164px) 
+    {
+        #syncfusion-logo-id{
+            padding-top: 175px;
+            margin-top:0px!important;
+        }
+        #login-container{
+            margin-top: 143px;             
+        }
+        #login-progress-container{
+            margin-top: 370px;
+        }
+    }
+
+    @media screen and (max-width:1152px) 
+    {
+        #syncfusion-logo-id{
+            padding-top: 170px;
+            margin-top:0px!important;
+            height: 80%;
+        }
+        #login-container{
+            margin-top: 140px;             
+        }
+        #login-progress-container{
+            margin-top: 362px;
+        }
+    }
+
+    @media screen and (max-width:1058px) and (min-width: 1050px)
+    {
+        #syncfusion-logo-id{
+            margin-top:0px!important;
+            padding-top: 150px;
+        }
+        #login-container{
+            margin-top: 113px;             
+        }
+        #login-progress-container{
+            margin-top: 338px;
+        }
+    }
+
+    @media screen and (max-width:1026px) and (min-width: 1022px)
+    {
+        #syncfusion-logo-id{
+            margin-top:0px!important;
+            padding-top: 150px;
+            width: 85%;
+        }
+        #login-container{
+            margin-top: 128px;             
+        }
+        #login-progress-container{
+            margin-top: 350px;
+        }
+    }
+
+    @media screen and (max-width:1026px) and (min-width: 1022px)
+    {
+        #syncfusion-logo-id{
+            padding-top: 150px;
+            margin-top:0px!important;
+            width: 85%;
+        }
+        #login-container{
+            margin-top: 128px;             
+        }
+        #login-progress-container{
+            margin-top: 350px;
+        }
+    }
+
+    @media screen and (max-width:964px) and (min-width: 958px)
+    {
+        #syncfusion-logo-id{
+            margin-top:0px!important;
+            padding-top: 121px;
+            width: 85%;
+        }
+        .syncfusion-logo{
+            background-size: 420px!important;
+        }
+        #login-container{
+            margin-top: 95px;     
+            margin-left: 32px;
+        }
+        #login-progress-container{
+            margin-top: 320px;
+            padding-left: 20px;
+        }
+    }
+
+    @media screen and (max-width:856px) and (min-width:850px)
+    {
+        #syncfusion-logo-id{
+            margin-top:0px!important;
+            padding-top: 115px;
+            width: 85%;
+        }
+        .syncfusion-logo{
+            background-size: 400px!important;
+        }
+        #login-container{
+            margin-top: 72px;
+            margin-left: 14px;
+        }
+        #login-progress-container{
+            margin-top: 300px;
+            padding-left: 5px;
+        }
+    }
+    @media screen and (max-width:866px) and (min-width:860px)
+    {
+        #syncfusion-logo-id{
+            margin-top:0px!important;
+            padding-top: 115px;
+            width: 85%;
+        }
+        .syncfusion-logo{
+            background-size: 360px!important;
+        }
+        #login-container{
+            margin-top: 75px;
+            margin-left: 4px;
+        }
+        #login-progress-container{
+            margin-top: 299px;
+            padding-left: 0;
+        }
+    }

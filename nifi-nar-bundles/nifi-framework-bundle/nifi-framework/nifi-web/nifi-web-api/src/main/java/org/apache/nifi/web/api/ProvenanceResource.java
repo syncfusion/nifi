@@ -22,22 +22,16 @@ import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.ApiResponse;
 import com.wordnik.swagger.annotations.ApiResponses;
 import com.wordnik.swagger.annotations.Authorization;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.nifi.authorization.AccessDeniedException;
-import org.apache.nifi.authorization.AuthorizationRequest;
-import org.apache.nifi.authorization.AuthorizationResult;
-import org.apache.nifi.authorization.AuthorizationResult.Result;
 import org.apache.nifi.authorization.Authorizer;
 import org.apache.nifi.authorization.RequestAction;
-import org.apache.nifi.authorization.UserContextKeys;
-import org.apache.nifi.authorization.resource.ResourceFactory;
-import org.apache.nifi.authorization.user.NiFiUser;
+import org.apache.nifi.authorization.resource.Authorizable;
 import org.apache.nifi.authorization.user.NiFiUserUtils;
 import org.apache.nifi.web.NiFiServiceFacade;
 import org.apache.nifi.web.api.dto.provenance.ProvenanceDTO;
 import org.apache.nifi.web.api.dto.provenance.ProvenanceOptionsDTO;
 import org.apache.nifi.web.api.dto.provenance.lineage.LineageDTO;
 import org.apache.nifi.web.api.dto.provenance.lineage.LineageRequestDTO;
+import org.apache.nifi.web.api.dto.provenance.lineage.LineageResultsDTO;
 import org.apache.nifi.web.api.entity.ComponentEntity;
 import org.apache.nifi.web.api.entity.LineageEntity;
 import org.apache.nifi.web.api.entity.ProvenanceEntity;
@@ -86,36 +80,24 @@ public class ProvenanceResource extends ApplicationResource {
     /**
      * Populates the uri for the specified lineage.
      */
-    private LineageDTO populateRemainingLineageContent(LineageDTO lineage) {
+    private LineageDTO populateRemainingLineageContent(LineageDTO lineage, String clusterNodeId) {
         lineage.setUri(generateResourceUri("provenance", "lineage", lineage.getId()));
+
+        // set the cluster node id
+        lineage.getRequest().setClusterNodeId(clusterNodeId);
+        final LineageResultsDTO results = lineage.getResults();
+        if (results != null && results.getNodes() != null) {
+            results.getNodes().forEach(node -> node.setClusterNodeIdentifier(clusterNodeId));
+        }
+
         return lineage;
     }
 
     private void authorizeProvenanceRequest() {
-        final NiFiUser user = NiFiUserUtils.getNiFiUser();
-
-        final Map<String, String> userContext;
-        if (!StringUtils.isBlank(user.getClientAddress())) {
-            userContext = new HashMap<>();
-            userContext.put(UserContextKeys.CLIENT_ADDRESS.name(), user.getClientAddress());
-        } else {
-            userContext = null;
-        }
-
-        final AuthorizationRequest request = new AuthorizationRequest.Builder()
-                .resource(ResourceFactory.getProvenanceResource())
-                .identity(user.getIdentity())
-                .anonymous(user.isAnonymous())
-                .accessAttempt(true)
-                .action(RequestAction.READ)
-                .userContext(userContext)
-                .explanationSupplier(() -> "Unable to query provenance.")
-                .build();
-
-        final AuthorizationResult result = authorizer.authorize(request);
-        if (!Result.Approved.equals(result.getResult())) {
-            throw new AccessDeniedException(result.getExplanation());
-        }
+        serviceFacade.authorizeAccess(lookup -> {
+            final Authorizable provenance = lookup.getProvenance();
+            provenance.authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+        });
     }
 
     /**
@@ -158,7 +140,7 @@ public class ProvenanceResource extends ApplicationResource {
         entity.setProvenanceOptions(searchOptions);
 
         // generate the response
-        return clusterContext(noCache(Response.ok(entity))).build();
+        return noCache(Response.ok(entity)).build();
     }
 
     /**
@@ -256,7 +238,7 @@ public class ProvenanceResource extends ApplicationResource {
                     entity.setProvenance(dto);
 
                     // generate the response
-                    return clusterContext(generateCreatedResponse(URI.create(dto.getUri()), entity)).build();
+                    return generateCreatedResponse(URI.create(dto.getUri()), entity).build();
                 }
         );
     }
@@ -335,7 +317,7 @@ public class ProvenanceResource extends ApplicationResource {
         entity.setProvenance(dto);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -403,7 +385,7 @@ public class ProvenanceResource extends ApplicationResource {
                     serviceFacade.deleteProvenance(entity.getId());
 
                     // generate the response
-                    return clusterContext(generateOkResponse(new ProvenanceEntity())).build();
+                    return generateOkResponse(new ProvenanceEntity()).build();
                 }
         );
     }
@@ -475,7 +457,7 @@ public class ProvenanceResource extends ApplicationResource {
                 }
                 break;
             case FLOWFILE:
-                // ensure the uuid has been specified
+                // ensure the uuid or event id has been specified
                 if (requestDto.getUuid() == null && requestDto.getEventId() == null) {
                     throw new IllegalArgumentException("The flowfile uuid or event id must be specified when the event type is FLOWFILE.");
                 }
@@ -504,15 +486,14 @@ public class ProvenanceResource extends ApplicationResource {
 
                     // get the provenance event
                     final LineageDTO dto = serviceFacade.submitLineage(lineageDTO);
-                    dto.getRequest().setClusterNodeId(lineageDTO.getRequest().getClusterNodeId());
-                    populateRemainingLineageContent(dto);
+                    populateRemainingLineageContent(dto, lineageDTO.getRequest().getClusterNodeId());
 
                     // create a response entity
                     final LineageEntity entity = new LineageEntity();
                     entity.setLineage(dto);
 
                     // generate the response
-                    return clusterContext(generateOkResponse(entity)).build();
+                    return generateCreatedResponse(URI.create(dto.getUri()), entity).build();
                 }
         );
     }
@@ -566,15 +547,14 @@ public class ProvenanceResource extends ApplicationResource {
 
         // get the lineage
         final LineageDTO dto = serviceFacade.getLineage(id);
-        dto.getRequest().setClusterNodeId(clusterNodeId);
-        populateRemainingLineageContent(dto);
+        populateRemainingLineageContent(dto, clusterNodeId);
 
         // create the response entity
         final LineageEntity entity = new LineageEntity();
         entity.setLineage(dto);
 
         // generate the response
-        return clusterContext(generateOkResponse(entity)).build();
+        return generateOkResponse(entity).build();
     }
 
     /**
@@ -636,7 +616,7 @@ public class ProvenanceResource extends ApplicationResource {
                     serviceFacade.deleteLineage(entity.getId());
 
                     // generate the response
-                    return clusterContext(generateOkResponse(new LineageEntity())).build();
+                    return generateOkResponse(new LineageEntity()).build();
                 }
         );
     }

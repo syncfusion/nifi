@@ -1,0 +1,366 @@
+@font-face {
+    font-family: 'flowfont';
+    src: url('./flowfont.eot?33669169');
+    src: url('./flowfont.eot?33669169#iefix') format('embedded-opentype'),
+    url('./flowfont.woff2?33669169') format('woff2'),
+    url('./flowfont.woff?33669169') format('woff'),
+    url('./flowfont.ttf?33669169') format('truetype'),
+    url('./flowfont.svg?33669169#flowfont') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+/* Chrome hack: SVG is rendered more smooth in Windozze. 100% magic, uncomment if you need it. */
+/* Note, that will break hinting! In other OS-es font will be not as sharp as it could be */
+/*
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  @font-face {
+    font-family: 'flowfont';
+    src: url('../font/flowfont.svg?33669169#flowfont') format('svg');
+  }
+}
+*/
+ 
+ [class^="icon-"]:before, [class*=" icon-"]:before {
+  font-family: "flowfont";
+  font-style: normal;
+  font-weight: normal;
+  speak: none;
+ 
+  display: inline-block;
+  text-decoration: inherit;
+  width: 1em;
+  margin-right: .2em;
+  text-align: center;
+  /* opacity: .8; */
+ 
+  /* For safety - reset parent styles, that can break glyph codes*/
+  font-variant: normal;
+  text-transform: none;
+ 
+  /* fix buttons height, for twitter bootstrap */
+  line-height: 1em;
+ 
+  /* Animation center compensation - margins should be symmetric */
+  /* remove if not needed */
+  /*margin-left: .2em;*/
+ 
+  /* you can be more comfortable with increased icons size */
+  /* font-size: 120%; */
+ 
+  /* Font smoothing. That was taken from TWBS */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+ 
+  /* Uncomment for 3D effect */
+  /* text-shadow: 1px 1px 1px rgba(127, 127, 127, 0.3); */
+}
+.disable-controller-service{
+        margin-left: 8px;
+}
+.icon-funnel-add:before 
+{
+content:url("images/Funnel.svg"); 
+margin-top: 3px;
+} /* '' */
+.icon-funnel-drag:before
+{
+content:url("images/Funnel.svg"); 
+margin-left: -9px;
+}
+.icon-counter:before { content: '\e801'; } /* '' */
+.icon-enable-false:before { 
+content: '\e802';
+margin-top: 5px;
+position: absolute;
+margin-left: -8px;
+} /* '' */
+.context-menu-item .icon-enable-false:before{
+   margin-left:0px!important;
+   margin-top: 2px!important;
+}
+#processor-summary-tab-content .icon-enable-false:before {
+    margin-top: 4px!important;
+    margin-left: -2px!important;
+}
+.icon-funnel:before 
+{
+content:url("images/Funnel.svg");
+margin-top: 3px;
+} /* '' */
+#operate-group .icon-group:before{
+margin:0px!important;
+}
+.icon-group{
+  margin-left:0px!important;  
+}
+.icon-group:before
+{
+content: url("images/Process_group.svg");
+margin-top: 3px;
+} /* '' */
+.icon-group-drag:before
+{
+content: url("images/Process_group.svg");
+margin-left: -9px;
+margin-top: 3px;
+}
+.icon-group-remote:before 
+{
+content:url("images/Remote_Process_group.svg");
+margin-top: 3px;
+} /* '' */
+.icon-group-remote-drag
+{
+content:url("images/Remote_Process_group.svg");
+margin-left: -9px;  
+margin-top: 3px;
+}
+.icon-template-drag:before
+{
+ content:url("images/ic_Template.png");
+margin-left: -9px; 
+margin-top: 3px;
+}
+.icon-label:before
+{
+content:  url("images/label.svg");
+margin-top: 3px;
+} /* '' */
+.icon-label-drag:before
+{
+content:  url("images/label.svg");
+margin-left: -9px;
+margin-top: 3px;
+}
+.icon-processor:before
+{
+ content:url("images/processer.svg");
+     margin-left: 0px ! important;
+     margin-top: -2px;
+    } /* '' */
+.icon-provenance:before { content: '\e808'; } /* '' */
+.icon-preview:before {  
+    content:url("images/DataPreview.svg");
+    margin-left: 0px ! important;
+    margin-top: -2px; } 
+.icon-template:before { 
+    content:url("images/ic_Template.png"); 
+   margin-left: -9px;
+} /* '' */
+.icon-transmit-false:before { content: '\e80a'; font-size: 12px;} /* '' */
+.icon-zoom-actual:before { content: '\e80b'; } /* '' */
+.icon-zoom-fit:before { content: '\e80c'; } /* '' */
+.icon-label-add:before
+{ 
+content: url("images/label.svg"); 
+margin-top: 3px;
+} /* '' */
+.icon-template-add:before
+{ 
+content:url("images/ic_Template.png"); 
+margin-left: -9px;
+} /* '' */
+.icon-group-add:before 
+{
+content: url("images/Process_group.svg"); 
+margin-top: 3px;
+} /* '' */
+.icon-template-import:before { content: '\e810'; } /* '' */
+.icon-template-save:before
+{ content: '\e811'; } /* '' */
+.icon-group-remote-add:before 
+{
+content:url("images/Remote_Process_group.svg");
+margin-top: 3px;
+} /* '' */
+
+.icon-port-out-add:before
+{
+content:url("images/output_port.svg");
+margin-top: 3px;
+} /* '' */
+.icon-port-out-drag:before
+{
+content:url("images/output_port.svg");
+margin-left: -9px;
+margin-top: 3px;
+}
+.icon-port-in-add:before 
+{
+content: url("images/ic_Input port.svg");
+margin-top: 3px;
+} /* '' */
+.icon-enable-controller-false:before { 
+    content: '\e802';
+    margin-top: 6px!important;
+    position: absolute;
+    margin-left: 0px!important;
+}
+.icon-processor-add:before 
+{
+ content:url("images/processer.svg");
+    margin-left: 0px ! important;
+} /* '' */
+.icon-processor-drag:before
+{
+ content:url("images/processer.svg");
+    margin-left: -10px ! important;
+    margin-top: 3px;
+}
+.icon-lineage:before { content: '\e816'; } /* '' */
+.icon-port-in:before 
+{
+content: url("images/ic_Input port.svg");
+margin-top: 3px;
+} /* '' */
+.icon-port-in-drag:before
+{
+content: url("images/ic_Input port.svg");
+margin-left: -9px;
+margin-top: 3px;
+}
+.icon-port-out:before { 
+content:url("images/output_port.svg");
+margin-top: 3px;
+
+} /* '' */
+.icon-connect:before { content: '\e834'; } /* '' */
+.icon-connect-add:before { content: '\e835'; } /* '' */
+.icon-threads:before { content: '\e83f';    font-size: 12px; } /* '' */
+.icon-drop:before { 
+content: url("images/logo.png");} /* '' */
+
+.context-menu-items{
+    position: relative;
+    width: 16px;
+    height: 16px;
+    opacity: 0.7;
+    background-repeat:no-repeat;
+}
+.icon-view{
+    background-image: url(images/icon-view.svg);
+}
+.icon-variables{
+    background-image: url(images/icon-variables.svg);
+    background-size: 14px;
+    margin-top: 1px;
+}
+.icon-configure{  
+    background-image: url(images/Menu_Configure.svg);
+}
+.icon-publish{
+    background-image: url(images/Menu_Publish.svg);
+}
+.icon-Entergroup{
+    background-image: url(images/Menu_Entergroup.svg);
+}.icon-DownstreamConnections{
+    background-image: url(images/Menu_DownstreamConnections.svg);
+}
+.icon-Delete{
+    background-image: url(images/Menu_Delete.svg);
+}
+.icon-Copy{
+    background-image: url(images/Menu_Copy.svg);
+}.icon-Publish{
+    background-image: url(images/Menu_Publish.svg);
+}
+.icon-Centerinview{
+    background-image: url(images/Menu_Centerinview.svg);
+}
+.icon-StatusHistory{
+    background-image: url(images/Menu_StatusHistory.svg);
+}
+.icon-Group{
+    background-image: url(images/Operate_Grouping.svg);
+}
+.icon-Stop{
+    background-image: url(images/Menu_Stop.svg);
+}
+.icon-Start{
+    background-image: url(images/Menu_Start.svg);
+}
+.icon-UpstreamConnection{
+    background-image: url(images/Menu_UpstreamConnection.svg);
+}
+.graph-control-action-icon{
+    position: relative;
+    width: 16px;
+    height: 16px;
+    background-repeat:no-repeat;  
+}
+.Operate_Configure{
+    margin-left:-1px;
+    background-image: url(images/Operate_Configure.svg);
+}
+.Operate_Copy{
+    margin-left:-1px;
+    background-image: url(images/Operate_Copy.svg);
+}
+.Operate_Delete{
+    margin-top: 5px;
+    background-image: url(images/Operate_Delete.svg);
+}
+
+.Operate_Disable{
+    margin-left:0px!important;
+    background-image: url(images/Operate_Disable.svg);
+}
+.Operate_Enable{
+    margin-left:-1px;
+    background-image: url(images/Operate_Enable.svg);
+}
+.Operate_Fillcolor{
+    background-image: url(images/Operate_Fillcolor.svg);
+}
+
+.Operate_Grouping{
+    margin-top:0px!important;
+    background-image: url(images/Operate_Grouping.svg);
+}
+
+
+.Operate_Paste{
+    margin-left:-1px;
+    background-image: url(images/Operate_Paste.svg);
+}
+.Operate_Permission{
+    margin-left:-1px;
+    background-image: url(images/Operate_Permission.svg);
+}
+.Operate_Publish{
+    background-image: url(images/Operate_Publish.svg);
+}
+
+.Operate_Publish{
+    margin-left:-1px;
+    background-image: url(images/Operate_Publish.svg);
+}
+.Operate_Stop{
+    margin-left:-1px;
+    background-image: url(images/Operate_Stop.svg);
+}
+.Operate_Start{
+    margin-left:0px;
+    background-image: url(images/Operate_Start.svg);
+}
+.icon-zoomin{
+    left: 0px!important;
+    background-image: url(images/Zoomin.svg);
+}
+.icon-zoomout{
+    background-image: url(images/Zoomout.svg);
+}
+.icon-fit{
+    margin-left:-1px;
+    background-image: url(images/Fit.svg);
+}
+.icon-actual{
+    margin-left:-1px;
+    background-image: url(images/Actual.svg);
+}
+.icon-navigate{
+    width: 18px!important;
+    background-repeat: no-repeat;
+    height: 18px!important;
+    background-image: url(images/Navigate.svg);
+}

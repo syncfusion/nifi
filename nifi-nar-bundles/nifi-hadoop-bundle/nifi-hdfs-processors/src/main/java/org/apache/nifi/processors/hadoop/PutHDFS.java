@@ -32,13 +32,9 @@ import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
-import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
-import org.apache.nifi.components.ValidationContext;
-import org.apache.nifi.components.ValidationResult;
-import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.flowfile.attributes.CoreAttributes;
 import org.apache.nifi.processor.DataUnit;
@@ -96,8 +92,6 @@ public class PutHDFS extends AbstractHadoopProcessor {
     public static final String BUFFER_SIZE_KEY = "io.file.buffer.size";
     public static final int BUFFER_SIZE_DEFAULT = 4096;
 
-    public static final String ABSOLUTE_HDFS_PATH_ATTRIBUTE = "absolute.hdfs.path";
-
     // relationships
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")
@@ -135,14 +129,14 @@ public class PutHDFS extends AbstractHadoopProcessor {
     public static final PropertyDescriptor REPLICATION_FACTOR = new PropertyDescriptor.Builder()
             .name("Replication")
             .description("Number of times that HDFS will replicate each file. This overrides the Hadoop Configuration")
-            .addValidator(createPositiveShortValidator())
+            .addValidator(HadoopValidators.POSITIVE_SHORT_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor UMASK = new PropertyDescriptor.Builder()
             .name("Permissions umask")
             .description(
                     "A umask represented as an octal number which determines the permissions of files written to HDFS. This overrides the Hadoop Configuration dfs.umaskmode")
-            .addValidator(createUmaskValidator())
+            .addValidator(HadoopValidators.UMASK_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor REMOTE_OWNER = new PropertyDescriptor.Builder()
@@ -150,6 +144,7 @@ public class PutHDFS extends AbstractHadoopProcessor {
             .description(
                     "Changes the owner of the HDFS file to this value after it is written. This only works if NiFi is running as a user that has HDFS super user privilege to change owner")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(true)
             .build();
 
     public static final PropertyDescriptor REMOTE_GROUP = new PropertyDescriptor.Builder()
@@ -157,6 +152,7 @@ public class PutHDFS extends AbstractHadoopProcessor {
             .description(
                     "Changes the group of the HDFS file to this value after it is written. This only works if NiFi is running as a user that has HDFS super user privilege to change group")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(true)
             .build();
 
     private static final Set<Relationship> relationships;
@@ -191,10 +187,8 @@ public class PutHDFS extends AbstractHadoopProcessor {
         return props;
     }
 
-    @OnScheduled
-    public void onScheduled(ProcessContext context) throws Exception {
-        super.abstractOnScheduled(context);
-
+    @Override
+    protected void preProcessConfiguration(final Configuration config, final ProcessContext context) {
         // Set umask once, to avoid thread safety issues doing it in onTrigger
         final PropertyValue umaskProp = context.getProperty(UMASK);
         final short dfsUmask;
@@ -203,8 +197,8 @@ public class PutHDFS extends AbstractHadoopProcessor {
         } else {
             dfsUmask = FsPermission.DEFAULT_UMASK;
         }
-        final Configuration conf = getConfiguration();
-        FsPermission.setUMask(conf, new FsPermission(dfsUmask));
+
+        FsPermission.setUMask(config, new FsPermission(dfsUmask));
     }
 
     @Override
@@ -264,7 +258,7 @@ public class PutHDFS extends AbstractHadoopProcessor {
                         if (!hdfs.mkdirs(configuredRootDirPath)) {
                             throw new IOException(configuredRootDirPath.toString() + " could not be created");
                         }
-                        changeOwner(context, hdfs, configuredRootDirPath);
+                        changeOwner(context, hdfs, configuredRootDirPath, flowFile);
                     }
 
                     final boolean destinationExists = hdfs.exists(copyFile);
@@ -357,7 +351,7 @@ public class PutHDFS extends AbstractHadoopProcessor {
                                     + " to its final filename");
                         }
 
-                        changeOwner(context, hdfs, copyFile);
+                        changeOwner(context, hdfs, copyFile, flowFile);
                     }
 
                     getLogger().info("copied {} to HDFS at {} in {} milliseconds at a rate of {}",
@@ -391,64 +385,21 @@ public class PutHDFS extends AbstractHadoopProcessor {
         });
     }
 
-    protected void changeOwner(final ProcessContext context, final FileSystem hdfs, final Path name) {
+    protected void changeOwner(final ProcessContext context, final FileSystem hdfs, final Path name, final FlowFile flowFile) {
         try {
             // Change owner and group of file if configured to do so
-            String owner = context.getProperty(REMOTE_OWNER).getValue();
-            String group = context.getProperty(REMOTE_GROUP).getValue();
+            String owner = context.getProperty(REMOTE_OWNER).evaluateAttributeExpressions(flowFile).getValue();
+            String group = context.getProperty(REMOTE_GROUP).evaluateAttributeExpressions(flowFile).getValue();
+
+            owner = owner == null || owner.isEmpty() ? null : owner;
+            group = group == null || group.isEmpty() ? null : group;
+
             if (owner != null || group != null) {
                 hdfs.setOwner(name, owner, group);
             }
         } catch (Exception e) {
             getLogger().warn("Could not change owner or group of {} on HDFS due to {}", new Object[]{name, e});
         }
-    }
-
-    /*
-     * Validates that a property is a valid short number greater than 0.
-     */
-    static Validator createPositiveShortValidator() {
-        return new Validator() {
-            @Override
-            public ValidationResult validate(final String subject, final String value, final ValidationContext context) {
-                String reason = null;
-                try {
-                    final short shortVal = Short.parseShort(value);
-                    if (shortVal <= 0) {
-                        reason = "short integer must be greater than zero";
-                    }
-                } catch (final NumberFormatException e) {
-                    reason = "[" + value + "] is not a valid short integer";
-                }
-                return new ValidationResult.Builder().subject(subject).input(value).explanation(reason).valid(reason == null)
-                        .build();
-            }
-        };
-    }
-
-    /*
-     * Validates that a property is a valid umask, i.e. a short octal number that is not negative.
-     */
-    static Validator createUmaskValidator() {
-        return new Validator() {
-            @Override
-            public ValidationResult validate(final String subject, final String value, final ValidationContext context) {
-                String reason = null;
-                try {
-                    final short shortVal = Short.parseShort(value, 8);
-                    if (shortVal < 0) {
-                        reason = "octal umask [" + value + "] cannot be negative";
-                    } else if (shortVal > 511) {
-                        // HDFS umask has 9 bits: rwxrwxrwx ; the sticky bit cannot be umasked
-                        reason = "octal umask [" + value + "] is not a valid umask";
-                    }
-                } catch (final NumberFormatException e) {
-                    reason = "[" + value + "] is not a valid short octal number";
-                }
-                return new ValidationResult.Builder().subject(subject).input(value).explanation(reason).valid(reason == null)
-                        .build();
-            }
-        };
     }
 
 }

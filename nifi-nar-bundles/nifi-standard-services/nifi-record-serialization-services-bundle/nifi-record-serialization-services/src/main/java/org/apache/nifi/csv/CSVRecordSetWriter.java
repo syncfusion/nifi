@@ -17,6 +17,8 @@
 
 package org.apache.nifi.csv;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,22 +29,27 @@ import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.schema.access.SchemaNotFoundException;
 import org.apache.nifi.serialization.DateTimeTextRecordSetWriter;
 import org.apache.nifi.serialization.RecordSetWriter;
 import org.apache.nifi.serialization.RecordSetWriterFactory;
+import org.apache.nifi.serialization.record.RecordSchema;
 
 @Tags({"csv", "result", "set", "recordset", "record", "writer", "serializer", "row", "tsv", "tab", "separated", "delimited"})
 @CapabilityDescription("Writes the contents of a RecordSet as CSV data. The first line written "
-    + "will be the column names. All subsequent lines will be the values corresponding to those columns.")
+    + "will be the column names (unless the 'Include Header Line' property is false). All subsequent lines will be the values "
+    + "corresponding to the record fields.")
 public class CSVRecordSetWriter extends DateTimeTextRecordSetWriter implements RecordSetWriterFactory {
 
     private volatile CSVFormat csvFormat;
+    private volatile boolean includeHeader;
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         final List<PropertyDescriptor> properties = new ArrayList<>(super.getSupportedPropertyDescriptors());
         properties.add(CSVUtils.CSV_FORMAT);
         properties.add(CSVUtils.VALUE_SEPARATOR);
+        properties.add(CSVUtils.INCLUDE_HEADER_LINE);
         properties.add(CSVUtils.QUOTE_CHAR);
         properties.add(CSVUtils.ESCAPE_CHAR);
         properties.add(CSVUtils.COMMENT_MARKER);
@@ -57,11 +64,12 @@ public class CSVRecordSetWriter extends DateTimeTextRecordSetWriter implements R
     @OnEnabled
     public void storeCsvFormat(final ConfigurationContext context) {
         this.csvFormat = CSVUtils.createCSVFormat(context);
+        this.includeHeader = context.getProperty(CSVUtils.INCLUDE_HEADER_LINE).asBoolean();
     }
 
     @Override
-    public RecordSetWriter createWriter(final ComponentLog logger) {
-        return new WriteCSVResult(csvFormat, getDateFormat(), getTimeFormat(), getTimestampFormat());
+    public RecordSetWriter createWriter(final ComponentLog logger, final RecordSchema schema, final OutputStream out) throws SchemaNotFoundException, IOException {
+        return new WriteCSVResult(csvFormat, schema, getSchemaAccessWriter(schema), out,
+            getDateFormat().orElse(null), getTimeFormat().orElse(null), getTimestampFormat().orElse(null), includeHeader);
     }
-
 }

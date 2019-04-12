@@ -45,6 +45,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLContext;
 import javax.ws.rs.core.Response;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.authorization.Resource;
 import org.apache.nifi.authorization.resource.Authorizable;
 import org.apache.nifi.authorization.resource.ResourceFactory;
@@ -163,9 +164,10 @@ public class StandardRemoteProcessGroup implements RemoteProcessGroup {
             @Override
             public void reportEvent(final Severity severity, final String category, final String message) {
                 final String groupId = StandardRemoteProcessGroup.this.getProcessGroup().getIdentifier();
+                final String groupName = StandardRemoteProcessGroup.this.getProcessGroup().getName();
                 final String sourceId = StandardRemoteProcessGroup.this.getIdentifier();
                 final String sourceName = StandardRemoteProcessGroup.this.getName();
-                bulletinRepository.addBulletin(BulletinFactory.createBulletin(groupId, sourceId, ComponentType.REMOTE_PROCESS_GROUP,
+                bulletinRepository.addBulletin(BulletinFactory.createBulletin(groupId, groupName, sourceId, ComponentType.REMOTE_PROCESS_GROUP,
                         sourceName, category, severity.name(), message));
             }
         };
@@ -632,6 +634,15 @@ public class StandardRemoteProcessGroup implements RemoteProcessGroup {
             if (descriptor.getUseCompression() != null) {
                 port.setUseCompression(descriptor.getUseCompression());
             }
+            if (descriptor.getBatchCount() != null && descriptor.getBatchCount() > 0) {
+                port.setBatchCount(descriptor.getBatchCount());
+            }
+            if (!StringUtils.isBlank(descriptor.getBatchSize())) {
+                port.setBatchSize(descriptor.getBatchSize());
+            }
+            if (!StringUtils.isBlank(descriptor.getBatchDuration())) {
+                port.setBatchDuration(descriptor.getBatchDuration());
+            }
         } finally {
             writeLock.unlock();
         }
@@ -696,6 +707,15 @@ public class StandardRemoteProcessGroup implements RemoteProcessGroup {
             }
             if (descriptor.getUseCompression() != null) {
                 port.setUseCompression(descriptor.getUseCompression());
+            }
+            if (descriptor.getBatchCount() != null && descriptor.getBatchCount() > 0) {
+                port.setBatchCount(descriptor.getBatchCount());
+            }
+            if (!StringUtils.isBlank(descriptor.getBatchSize())) {
+                port.setBatchSize(descriptor.getBatchSize());
+            }
+            if (!StringUtils.isBlank(descriptor.getBatchDuration())) {
+                port.setBatchDuration(descriptor.getBatchDuration());
             }
 
             inputPorts.put(descriptor.getId(), port);
@@ -880,6 +900,7 @@ public class StandardRemoteProcessGroup implements RemoteProcessGroup {
         try {
             this.networkInterfaceName = interfaceName;
             if (interfaceName == null) {
+                this.localAddress = null;
                 this.nicValidationResult = null;
             } else {
                 try {
@@ -930,11 +951,7 @@ public class StandardRemoteProcessGroup implements RemoteProcessGroup {
         SiteToSiteRestApiClient apiClient = new SiteToSiteRestApiClient(sslContext, new HttpProxy(proxyHost, proxyPort, proxyUser, proxyPassword), getEventReporter());
         apiClient.setConnectTimeoutMillis(getCommunicationsTimeout(TimeUnit.MILLISECONDS));
         apiClient.setReadTimeoutMillis(getCommunicationsTimeout(TimeUnit.MILLISECONDS));
-
-        final InetAddress localAddress = getLocalAddress();
-        if (localAddress != null) {
-            apiClient.setLocalAddress(localAddress);
-        }
+        apiClient.setLocalAddress(getLocalAddress());
 
         return apiClient;
     }
@@ -1282,7 +1299,9 @@ public class StandardRemoteProcessGroup implements RemoteProcessGroup {
                     throw new IllegalStateException(this.getIdentifier() + " has a Connection to Port " + port.getIdentifier() + ", but that Port no longer exists on the remote system");
                 }
 
-                port.verifyCanStart();
+                if (port.hasIncomingConnection()) {
+                    port.verifyCanStart();
+                }
             }
 
             for (final StandardRemoteGroupPort port : outputPorts.values()) {
@@ -1294,7 +1313,9 @@ public class StandardRemoteProcessGroup implements RemoteProcessGroup {
                     throw new IllegalStateException(this.getIdentifier() + " has a Connection to Port " + port.getIdentifier() + ", but that Port no longer exists on the remote system");
                 }
 
-                port.verifyCanStart();
+                if (!port.getConnections().isEmpty()) {
+                    port.verifyCanStart();
+                }
             }
         } finally {
             readLock.unlock();

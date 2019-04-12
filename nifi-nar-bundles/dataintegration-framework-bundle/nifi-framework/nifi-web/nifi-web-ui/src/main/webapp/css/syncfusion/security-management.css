@@ -1,0 +1,730 @@
+#create-new-user-button, #sync-users-button, #add-new-component-policy-Btn {
+    background: rgb(68, 141, 213);
+    color: rgb(255, 255, 255);
+    border: 1px solid rgb(204, 204, 204);
+    border-radius: 3px;
+    width: initial;
+    float: right;
+}
+#add-policy-user-button{
+    background: #448dd5;
+    color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    width: initial;
+    float: right;
+    position: relative;
+    left: -41px;
+    top:-32px;
+}
+#component-policy-combo-box {
+    width: 200px;
+    margin-right: 3px;
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+}
+
+#create-new-user-button:hover, #sync-users-button:hover, #add-new-component-policy-Btn:hover,#add-policy-user-button:hover{
+    background: rgb(192, 216, 240);
+}
+
+#create-new-user-button-Pnl, #users-security-table-Pnl,
+#usergroups-security-table-Pnl,
+#policy-selected-item-container,#security-management-content-pnl
+#users-security-tab-content,#global-policy-tab-content,#usergroups-security-tab-content,#component-policy-tab-content,
+#security-tabs-content,#component-policy-pnl,#add-component-policy-pnl,
+#component-policy-top-pnl,#component-policy-bottom-pnl,#policy-tabs-content,
+.generalAlignment, #security-header-and-filter, #security-refresh-container{
+    float:left;
+    width: 100%;
+}
+
+#users-security-tab-content,#global-policy-tab-content, #usergroups-security-tab-content,#component-policy-tab-content, #security-tabs-content,#policy-tabs-content{    
+    position:relative;
+    padding-top: 0px;
+}
+
+#security-management-header-text{
+    font-size: 18px;
+    font-weight: bold;
+    color: #448dd5;
+    font-family: Roboto Slab;
+    margin-bottom: 30px;
+    margin-left: 3px;
+}
+
+#security-tabs{
+    float: left;
+}
+.securityGrid-alignmentSpaces{
+        margin-bottom: 30px;
+}
+
+#security-tabs-content,#policy-tabs-content{
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+#security-management{
+    display: none;    
+    height: 100%;
+    margin: 0px 20px 0px 20px;
+}
+
+#security-management-content-pnl{
+    position: relative;
+    height: 90%;
+}
+
+#security-refresh-container{
+    position: relative;
+    height: 10%;
+    width: auto;
+    float: left;
+}
+
+#security-header-and-filter, #security-tabs, #security-tabs-content,#policy-tabs-content{
+    position: absolute;
+}
+#security-header-and-filter{
+    margin-top: 0px!important;
+}
+
+#security-tabs{
+    left:0;
+    top:80px;
+}
+policies-tabs{
+    left:0;
+    top:48px;
+}
+
+#security-tabs-content{
+    left:0;
+    top:130px;
+}
+#policy-tabs-content{
+    left:0;
+    top:95px;
+}
+#security-delete-dialog {
+    width: 450px;
+    height: 165px;
+}
+
+#new-user-dialog, #new-usergroup-dialog {
+    width: 450px;
+    height: 500px;
+}
+
+ul.usersGroupsList li {
+    height: 24px;
+    line-height: 24px;
+    border-bottom: 1px solid #c7d2d7;
+    width: 100%;
+    display: inline-flex;
+}
+
+ul.usersGroupsList li.even {
+    background-color: #f4f6f7;
+}
+
+ul.usersGroupsList li div.nf-checkbox {
+    margin: 0 10px;
+    margin-top: 6px;
+    min-width: 12px;
+    max-width: 12px;
+}
+
+div.available-identities {
+    margin-left: 5px;
+    margin-right: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.policy-selected-item-name {
+    height: 16px;
+    font-size: 15px;
+    font-family: Roboto;
+    color: #262626;
+    width: 300px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.policy-selected-item-type {
+    font-size: 12px;
+    font-family: Roboto;
+    color: #728e9b;
+}
+
+#create-component-policies-dialog{
+    width: 400px;
+    height: 300px;
+}
+
+#manage-component-policies-dialog{
+    top: 15px!important;
+    height: 95%!important;
+    width: 98%!important;
+}
+
+.setting-alignment{
+    padding-left:21px;
+}
+
+#add-policies-user-dialog {
+    width: 440px!important;
+    min-width: 400px !important;
+    min-height: 300px !important;
+    height: 330px !important;
+    top: 80px !important;
+}
+
+#manage-user-policies-dialog{
+    top: 15px!important;
+    height: 95%!important;
+    width: 98% !important;
+
+}
+.addbutton-style{
+    margin-right: 50px !important;
+    padding-left: 5px !important;
+}
+.add-policy-dialogstyle{
+    height:100px !important;
+    width:33px !important;
+}
+.entity-textstyle,.accessmode-textstyle{    
+    font-size: 16px;
+}
+
+.dialog-contentStyle{
+    overflow-x: hidden !important;
+}
+.userinfo-alignmentStyle{
+    float:left;
+    position: relative;
+    left: -20px;
+}
+
+.componentPolicy-userInfo{
+    float: left;
+    position: relative;
+    left: 23px;
+    top: 7px;
+}
+
+.componentPolicyGrid-positionStyle{
+    top: 30px;
+    position: absolute;
+}
+.addicon-alignmentStyle{
+    float:right;position: absolute;right: -49px;top: -6px;
+}
+
+.add-policy-lbl-align{
+    float: left;
+    width: 35%;
+    padding: 8px;
+}
+.add-policy-combo-box-align{
+    float: left;
+}
+.policy-details-containerStyle{
+    position: absolute;
+    top: 36px;
+    left: 57px;
+}
+.policy-type-iconStyle{
+     margin-bottom: 6px;
+     margin-left: 5px;
+}
+.create-new-user-button-PnlStyle{
+    float:none !important;position: relative;top: 5px;left: -4px;
+}
+.delete-contentStyle{
+    font-size: 14px;
+    font-family: roboto !important;
+    width: 401px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#component-policy-message-pnl,#global-policy-message-pnl{
+    position: absolute;
+    color: #775351;
+    font-family: Roboto;
+    font-size: 13px;
+    right: 0px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    left: 19px;
+    bottom: 55px;
+}
+
+.disable-addbutton-element{
+    pointer-events: none;
+    width: 28px;  
+    top: 0; 
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(206, 206, 206)!important;
+    z-index: 2;
+    opacity: 0.5;
+}
+
+#security-policy-view-container{
+    position: relative;
+    width: 130px;
+    margin-top: 7px;
+    height: 10%;
+    float: left;  
+}
+#policy-view{
+    position: relative;
+    width: 150px;
+    float: left;
+    font-size: 13px;
+}
+.security-close-button{
+    margin-top:12px;
+}
+/*security-management-css*/
+#security-management .tab-container{
+        border-bottom: 0px;
+        background-color: transparent;
+}
+#security-management .tab{
+    color: #448dd5;
+    background-color: transparent;
+}
+#security-management .selected-tab{
+    color: #448dd5;
+    background-color: transparent;
+    box-shadow: 0px 2px #448dd5;
+}
+
+/*Manage-Permission-css*/
+#manage-user-policies-dialog .tab-container{
+    border-bottom: 0px;
+    background-color: transparent;
+}
+#manage-user-policies-dialog .tab{
+    color: #448dd5;
+    background-color: transparent;
+}
+#manage-user-policies-dialog .selected-tab{
+    color: #448dd5;
+    background-color: transparent;
+    box-shadow: 0px 2px #448dd5;
+}
+#manage-user-policies-dialog .policiestab-Style{
+    top: 43px !important;
+    left: 0px;
+    position: absolute;
+    left: -10px;
+}
+
+/*Enable-secuityconfiguration-dialog-css*/
+#enable-securityconfiguration-dialog{
+    min-width: 740px;
+    min-height: 405px;
+}
+
+.dialog-UMPheader-text {
+    color: rgb(68, 141, 213);
+    font-size: 18px;
+    font-style: normal;
+    font-weight: bold;
+    line-height: 56px;
+    padding-left: 20px;
+    font-family: Roboto !important;
+    text-overflow: ellipsis;
+}
+.dialog-contentstyle {
+    position: absolute;
+    top: 72px;
+    bottom: 0px;
+    left: 25px;
+    right: 30px;
+    overflow: hidden;
+    word-wrap: break-word;
+}
+.dialog-header-style{
+    position: absolute;
+    top: -20px;
+}
+.registration-headingstyle{
+    font-size: 18px;
+    font-weight: 500;
+    position: absolute;
+    left: 262px;
+    top: 51px;
+    font-family: roboto !important;
+    color: #000000;
+    opacity: 0.54;
+}
+
+.registration-messagestyle{
+    font-size: 14px;
+    opacity: .87;
+    position: absolute;
+    font-weight: 500;
+    left: 110px;
+    top: 95px;
+    color: #000000;
+    font-family: roboto !important;   
+}
+
+.backbtn-style{
+    position: absolute;
+    right: 135px;
+    top: 0px;
+    background: rgb(255, 255, 255) !important;
+    color: rgb(92, 92, 92) !important;
+}
+
+.nextbtn-style{
+    position: absolute;
+    right: 30px;
+    top: 0px;
+    background: rgb(68, 141, 213) !important;
+    color: rgb(255, 255, 255) !important;
+}
+.backbtn-style:hover{
+    background-color: #c0d8f0 !important;
+    border:none !important;
+}
+.nextbtn-style:hover{
+    background-color: #c0d8f0 !important;
+    border:none !important;
+}
+
+.applicationdetail-messageone{
+    position: absolute;
+    right: 135px;
+    color: #000000;
+    font-size: 14px;
+    font-family: roboto !important;
+    line-height: 21px;
+    font-weight: 500;
+    top: 0px;
+}
+
+.applicationdetail-messagetwo{
+    position: absolute;
+    right: 215px;
+    top: 36px;
+    color: #000000;
+    font-size: 14px;
+    font-family: roboto !important;
+    line-height: 21px;
+    font-weight: 500;
+}
+
+.application-umpaddressstyle{
+    position: absolute;
+    right: 155px;
+    top: 78px;
+}
+.application-idstyle{
+    position: absolute;
+    right: 155px;
+    top: 146px;
+}
+.application-secretstyle{
+    position: absolute;
+    right: 155px;
+    top: 213px;
+}
+
+.border-style{
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    width: 94% !important;
+}
+.adminpanel-info{
+    position: absolute;
+    right: 192px;
+    top: 55px;
+    color: #000000;
+    opacity: 0.87;
+    font-size: 14px;
+    font-family: roboto !important;
+    line-height: 21px;
+}
+
+.selectadminuser-style{
+    width: 50% !important;
+    padding-top: 103px !important;
+    padding-left: 184px !important;
+    position: absolute;
+}
+.registrpanel-styles{
+    display: block;
+    position: relative;
+    top: 40px;
+    left: -10px;
+}
+.register-info-alignmentstyle{
+    top: 144px;
+    left: 212px;
+    position: absolute;
+    border: 1px solid #299EFF;
+    width: 259px;
+    height: 41px;
+    opacity: 1;
+    line-height: 1px;
+    color: #F6FBFF;
+    border-radius: 4px;
+    background-color: #F6FBFF;
+}
+.secureregister-info-alignmentstyle{
+    top: 144px;
+    left: 245px;
+    position: absolute;
+    border: 1px solid #299EFF;
+    width: 259px;
+    height: 41px;
+    line-height: 1px;
+    color: #F6FBFF;
+    opacity: 1;
+    border-radius: 4px;
+    background-color: #F6FBFF;
+    opacity: 1;
+}
+
+.register-link-alignmentstyle{
+    left: 12px;
+    color: #299EFF;
+    opacity: 1;
+    position: absolute;
+    font-size: 16px;
+    font-family: roboto !important;
+    font-weight: inherit;
+    width: 204px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    top: 14px;
+}
+
+.adminuser-info-style{
+    font-size: 11px;
+    font-weight: bold;
+    position: absolute;
+    top: 90px;
+    color: #299EFF;
+    left: 185px;
+    opacity: 1;
+}
+.securityenable-style{
+    font-size: 14px;
+    color: #000000;
+    opacity: .87;
+    line-height: 21px;
+    font-weight: 500;
+    position: absolute;
+    right: 40px;
+    top: 50px;
+    font-family: roboto !important;
+}
+.restartservice-infostyle{
+    position: absolute;
+    right: 215px;
+    top: 110px;
+    font-family: roboto !important;
+    color: #000000;
+    opacity: .87;
+    line-height: 21px;
+    font-size: 14px;
+    font-weight: 500;
+}
+.secureregister-linkstyle{
+    left: 14px;
+    color: #299EFF;
+    opacity: 1.1;
+    position: absolute;
+    white-space: nowrap;
+    width: 192px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    top: 14px;
+}
+
+.error-alert{
+    border-bottom:1px solid red !important;
+}
+
+.linkcopy-iconstyle {
+cursor: pointer;
+color: #000000;
+position: absolute;
+top: 10px;
+left: 227px;
+font-size: 22px !important;
+opacity: .84;
+transform: scale(0.8,1);
+}
+.securitylink-copyicon{
+    background-image: url(../../images/Copylink.svg);
+    height: 30px;
+    margin-top: 7px;
+    margin-right: 41px;
+    cursor: pointer;
+    position: relative;
+    left: 215px;
+    background-repeat: no-repeat;
+    background-size: 28px;
+}
+.registrationContent-style{
+    font-family: roboto !important;
+    font-size: 12px;
+    color: #299EFF;
+    opacity: 1;
+}
+.e-ripple-bar:before, .e-ripple-bar:after{
+    background: #299EFF !important;
+}
+.question-icon-style{ 
+cursor: pointer;
+position: absolute;
+right: 70px;
+top: -1px;
+font-size: 20px;
+}
+.close-icon-style{
+cursor: pointer;
+position: absolute;
+right: 27px;
+opacity: .54;
+top: -4px;
+font-size: 21px !important;
+}
+.e-dialog .e-dialog-icon.e-icon.e-close{
+    display: none !important;
+}
+.e-ddl.e-popactive .e-in-wrap:before, .e-ddl.e-popactive .e-in-wrap:after{
+    background: #299EFF !important;
+}
+.e-ddl-popup .e-active{
+    background-color: #D3D3D3;
+    color: #299EFF !important;
+}
+
+.e-ddl-popup .e-active.e-hover{
+    background-color: #D3D3D3;
+    color: #299EFF !important;
+}
+#application-errormessage{
+    position: absolute;
+    top: 278px;
+    left: 202px;
+    font-size: 13px;
+    color: red;
+    opacity: 0.84;
+    display: none;
+    font-family: roboto !important;
+}
+#adminpanel-errormessage{
+    position: absolute;
+    top: 278px;
+    left: 185px;
+    font-size: 13px;
+    color: red;
+    opacity: 0.84;
+    display: none;
+    font-family: roboto !important;
+}
+.e-overlay{
+    background-color: #a1c6ea!important;
+}
+#snackbar {
+visibility: hidden;
+margin-top: 65px;
+margin-left: 86px;
+margin-right: 80px;
+background-color: #333;
+color: #fff;
+text-align: center;
+border-radius: 25px;
+padding: 11px;
+position: sticky;
+z-index: 1;
+font-size: 11px;
+}
+
+#snackbar.show {
+visibility: visible;
+-webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+
+@-webkit-keyframes fadein {
+from {bottom: 30px; opacity: 0;} 
+to {bottom: 30px; opacity: 1;}
+}
+
+@keyframes fadein {
+from {bottom:  30px; opacity: 0;}
+to {bottom:  30px; opacity: 1;}
+}
+
+@-webkit-keyframes fadeout {
+from {bottom:  30px; opacity: 1;} 
+to {bottom:  30px; opacity: 0;}
+}
+
+#secureSnackbar {
+visibility: hidden;
+margin-top: 65px;
+margin-left: 86px;
+margin-right: 80px;
+background-color: #333;
+color: #fff;
+text-align: center;
+border-radius: 25px;
+padding: 11px;
+position: sticky;
+z-index: 1;
+font-size: 11px;
+}
+
+#secureSnackbar.show {
+visibility: visible;
+-webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+
+@-webkit-keyframes fadein {
+from {bottom: 30px; opacity: 0;} 
+to {bottom: 30px; opacity: 1;}
+}
+
+@keyframes fadein {
+from {bottom:  30px; opacity: 0;}
+to {bottom:  30px; opacity: 1;}
+}
+
+@-webkit-keyframes fadeout {
+from {bottom:  30px; opacity: 1;} 
+to {bottom:  30px; opacity: 0;}
+}
+
+@keyframes fadeout {
+from {bottom:  30px; opacity: 1;}
+to {bottom:  30px; opacity: 0;}
+}

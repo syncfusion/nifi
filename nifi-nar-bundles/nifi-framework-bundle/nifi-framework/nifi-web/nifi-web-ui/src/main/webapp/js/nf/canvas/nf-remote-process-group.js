@@ -50,6 +50,7 @@
     var nfConnectable;
     var nfDraggable;
     var nfSelectable;
+    var nfQuickSelect;
     var nfContextMenu;
 
     var PREVIEW_NAME_LENGTH = 30;
@@ -178,7 +179,7 @@
             });
 
         // always support selection
-        remoteProcessGroup.call(nfSelectable.activate).call(nfContextMenu.activate);
+        remoteProcessGroup.call(nfSelectable.activate).call(nfContextMenu.activate).call(nfQuickSelect.activate);
     };
 
     // attempt of space between component count and icon for process group contents
@@ -863,12 +864,14 @@
          * @param nfDraggableRef   The nfDraggable module.
          * @param nfSelectableRef   The nfSelectable module.
          * @param nfContextMenuRef   The nfContextMenu module.
+         * @param nfQuickSelectRef   The nfQuickSelect module.
          */
-        init: function (nfConnectableRef, nfDraggableRef, nfSelectableRef, nfContextMenuRef) {
+        init: function (nfConnectableRef, nfDraggableRef, nfSelectableRef, nfContextMenuRef, nfQuickSelectRef) {
             nfConnectable = nfConnectableRef;
             nfDraggable = nfDraggableRef;
             nfSelectable = nfSelectableRef;
             nfContextMenu = nfContextMenuRef;
+            nfQuickSelect = nfQuickSelectRef;
 
             remoteProcessGroupMap = d3.map();
             removedCache = d3.map();
@@ -931,16 +934,18 @@
         set: function (remoteProcessGroupEntities, options) {
             var selectAll = false;
             var transition = false;
+            var overrideRevisionCheck = false;
             if (nfCommon.isDefinedAndNotNull(options)) {
                 selectAll = nfCommon.isDefinedAndNotNull(options.selectAll) ? options.selectAll : selectAll;
                 transition = nfCommon.isDefinedAndNotNull(options.transition) ? options.transition : transition;
+                overrideRevisionCheck = nfCommon.isDefinedAndNotNull(options.overrideRevisionCheck) ? options.overrideRevisionCheck : overrideRevisionCheck;
             }
 
             var set = function (proposedRemoteProcessGroupEntity) {
                 var currentRemoteProcessGroupEntity = remoteProcessGroupMap.get(proposedRemoteProcessGroupEntity.id);
 
                 // set the remote process group if appropriate due to revision and wasn't previously removed
-                if (nfClient.isNewerRevision(currentRemoteProcessGroupEntity, proposedRemoteProcessGroupEntity) && !removedCache.has(proposedRemoteProcessGroupEntity.id)) {
+                if ((nfClient.isNewerRevision(currentRemoteProcessGroupEntity, proposedRemoteProcessGroupEntity) && !removedCache.has(proposedRemoteProcessGroupEntity.id)) || overrideRevisionCheck === true) {
                     remoteProcessGroupMap.set(proposedRemoteProcessGroupEntity.id, $.extend({
                         type: 'RemoteProcessGroup',
                         dimensions: dimensions

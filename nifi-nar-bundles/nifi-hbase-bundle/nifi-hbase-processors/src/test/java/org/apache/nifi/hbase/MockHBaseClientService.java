@@ -40,11 +40,17 @@ public class MockHBaseClientService extends AbstractControllerService implements
     private Map<String, List<PutFlowFile>> flowFilePuts = new HashMap<>();
     private boolean throwException = false;
     private int numScans = 0;
-
+    private int numPuts  = 0;
     @Override
     public void put(String tableName, Collection<PutFlowFile> puts) throws IOException {
         if (throwException) {
             throw new IOException("exception");
+        }
+
+        if (testFailure) {
+            if (++numPuts == failureThreshold) {
+                throw new IOException();
+            }
         }
 
         this.flowFilePuts.put(tableName, new ArrayList<>(puts));
@@ -53,6 +59,16 @@ public class MockHBaseClientService extends AbstractControllerService implements
     @Override
     public void put(String tableName, byte[] startRow, Collection<PutColumn> columns) throws IOException {
        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean checkAndPut(String tableName, byte[] rowId, byte[] family, byte[] qualifier, byte[]value, PutColumn column) throws IOException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void delete(String tableName, byte[] rowId) throws IOException {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -156,6 +172,16 @@ public class MockHBaseClientService extends AbstractControllerService implements
     }
 
     @Override
+    public byte[] toBytes(float f) {
+        return toBytes((double)f);
+    }
+
+    @Override
+    public byte[] toBytes(int i) {
+        return toBytes((long)i);
+    }
+
+    @Override
     public byte[] toBytes(long l) {
         byte [] b = new byte[8];
         for (int i = 7; i > 0; i--) {
@@ -179,5 +205,15 @@ public class MockHBaseClientService extends AbstractControllerService implements
     @Override
     public byte[] toBytesBinary(String s) {
        return Bytes.toBytesBinary(s);
+    }
+
+    private boolean testFailure = false;
+    public void setTestFailure(boolean testFailure) {
+        this.testFailure = testFailure;
+    }
+
+    private int failureThreshold = 1;
+    public void setFailureThreshold(int failureThreshold) {
+        this.failureThreshold = failureThreshold;
     }
 }

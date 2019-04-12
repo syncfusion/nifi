@@ -1,0 +1,29 @@
+            #delete-confirmation-dialog {
+             background-color: #fff;
+             min-height: 194px ! important;
+            }
+
+            #delete-check {
+             margin-top: 17px;
+            }
+            #checkbox-text{
+             height: 15px;
+             width: 43%;
+             float: left;
+             margin-left: 5px;
+             margin-top: 1px;;   
+            }
+            #delete-confirmation-dialog .dialog-content{
+             top:57px ! important;
+             font-family: Segoe UI;
+            }
+            #delete-alert-text{
+            width: 100%;
+            }
+            #span-check{
+            font-size: 12px;
+            }
+           .delete-checkbox{
+            float: left; 
+            }
+   

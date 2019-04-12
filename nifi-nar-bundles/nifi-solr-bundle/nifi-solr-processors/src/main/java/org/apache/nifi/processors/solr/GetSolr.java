@@ -42,11 +42,13 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
+import org.apache.nifi.annotation.behavior.Stateful;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnRemoved;
 import org.apache.nifi.annotation.lifecycle.OnStopped;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.state.Scope;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.flowfile.attributes.CoreAttributes;
 import org.apache.nifi.logging.ComponentLog;
@@ -70,6 +72,7 @@ import org.apache.solr.common.SolrInputDocument;
 @Tags({"Apache", "Solr", "Get", "Pull"})
 @InputRequirement(Requirement.INPUT_FORBIDDEN)
 @CapabilityDescription("Queries Solr and outputs the results as a FlowFile")
+@Stateful(scopes = {Scope.CLUSTER}, description = "Stores latest date of Date Field so that the same data will not be fetched multiple times.")
 public class GetSolr extends SolrProcessor {
 
     public static final PropertyDescriptor SOLR_QUERY = new PropertyDescriptor

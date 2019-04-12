@@ -16,6 +16,7 @@
  */
 package org.apache.nifi.fingerprint;
 
+import static org.apache.nifi.controller.serialization.ScheduledStateLookup.IDENTITY_LOOKUP;
 import static org.apache.nifi.fingerprint.FingerprintFactory.FLOW_CONFIG_XSD;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
@@ -26,14 +27,18 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.Collections;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.connectable.Position;
+import org.apache.nifi.controller.ScheduledState;
 import org.apache.nifi.controller.serialization.FlowSerializer;
+import org.apache.nifi.controller.serialization.ScheduledStateLookup;
 import org.apache.nifi.controller.serialization.StandardFlowSerializer;
 import org.apache.nifi.encrypt.StringEncryptor;
 import org.apache.nifi.groups.RemoteProcessGroup;
+import org.apache.nifi.remote.RemoteGroupPort;
 import org.apache.nifi.remote.protocol.SiteToSiteTransportProtocol;
 import org.apache.nifi.util.NiFiProperties;
 import org.junit.Before;
@@ -166,7 +171,7 @@ public class FingerprintFactoryTest {
     }
 
     private <T> Element serializeElement(final StringEncryptor encryptor, final Class<T> componentClass, final T component,
-                                         final String serializerMethodName) throws Exception {
+                                         final String serializerMethodName, ScheduledStateLookup scheduledStateLookup) throws Exception {
 
         final DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
         final DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
@@ -174,10 +179,10 @@ public class FingerprintFactoryTest {
 
         final FlowSerializer flowSerializer = new StandardFlowSerializer(encryptor);
         final Method serializeMethod = StandardFlowSerializer.class.getDeclaredMethod(serializerMethodName,
-                Element.class, componentClass);
+                Element.class, componentClass, ScheduledStateLookup.class);
         serializeMethod.setAccessible(true);
         final Element rootElement = doc.createElement("root");
-        serializeMethod.invoke(flowSerializer, rootElement, component);
+        serializeMethod.invoke(flowSerializer, rootElement, component, scheduledStateLookup);
         return rootElement;
     }
 
@@ -231,7 +236,7 @@ public class FingerprintFactoryTest {
                 "NO_VALUE" +
                 "NO_VALUE";
 
-        final Element rootElement = serializeElement(encryptor, RemoteProcessGroup.class, component, "addRemoteProcessGroup");
+        final Element rootElement = serializeElement(encryptor, RemoteProcessGroup.class, component, "addRemoteProcessGroup", IDENTITY_LOOKUP);
         final Element componentElement = (Element) rootElement.getElementsByTagName("remoteProcessGroup").item(0);
         assertEquals(expected, fingerprint("addRemoteProcessGroupFingerprint", Element.class, componentElement));
 
@@ -268,9 +273,47 @@ public class FingerprintFactoryTest {
                 "proxy-user" +
                 "proxy-pass";
 
-        final Element rootElement = serializeElement(encryptor, RemoteProcessGroup.class, component, "addRemoteProcessGroup");
+        final Element rootElement = serializeElement(encryptor, RemoteProcessGroup.class, component, "addRemoteProcessGroup", IDENTITY_LOOKUP);
         final Element componentElement = (Element) rootElement.getElementsByTagName("remoteProcessGroup").item(0);
         assertEquals(expected.toString(), fingerprint("addRemoteProcessGroupFingerprint", Element.class, componentElement));
     }
 
+    @Test
+    public void testRemotePortFingerprint() throws Exception {
+
+        // Fill out every configuration.
+        final RemoteProcessGroup groupComponent = mock(RemoteProcessGroup.class);
+        when(groupComponent.getName()).thenReturn("name");
+        when(groupComponent.getIdentifier()).thenReturn("id");
+        when(groupComponent.getPosition()).thenReturn(new Position(10.5, 20.3));
+        when(groupComponent.getTargetUri()).thenReturn("http://node1:8080/nifi");
+        when(groupComponent.getTransportProtocol()).thenReturn(SiteToSiteTransportProtocol.RAW);
+
+        final RemoteGroupPort portComponent = mock(RemoteGroupPort.class);
+        when(groupComponent.getInputPorts()).thenReturn(Collections.singleton(portComponent));
+        when(portComponent.getName()).thenReturn("portName");
+        when(portComponent.getIdentifier()).thenReturn("portId");
+        when(portComponent.getPosition()).thenReturn(new Position(10.5, 20.3));
+        when(portComponent.getComments()).thenReturn("portComment");
+        when(portComponent.getScheduledState()).thenReturn(ScheduledState.RUNNING);
+        when(portComponent.getMaxConcurrentTasks()).thenReturn(3);
+        when(portComponent.isUseCompression()).thenReturn(true);
+        when(portComponent.getBatchCount()).thenReturn(1234);
+        when(portComponent.getBatchSize()).thenReturn("64KB");
+        when(portComponent.getBatchDuration()).thenReturn("10sec");
+        // Serializer doesn't serialize if a port doesn't have any connection.
+        when(portComponent.hasIncomingConnection()).thenReturn(true);
+
+        // Assert fingerprints with expected one.
+        final String expected = "portId" +
+                "3" +
+                "true" +
+                "1234" +
+                "64KB" +
+                "10sec";
+
+        final Element rootElement = serializeElement(encryptor, RemoteProcessGroup.class, groupComponent, "addRemoteProcessGroup", IDENTITY_LOOKUP);
+        final Element componentElement = (Element) rootElement.getElementsByTagName("inputPort").item(0);
+        assertEquals(expected.toString(), fingerprint("addRemoteGroupPortFingerprint", Element.class, componentElement));
+    }
 }
